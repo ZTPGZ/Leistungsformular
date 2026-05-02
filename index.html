@@ -1309,8 +1309,11 @@ const DEFAULT_FSI = [
 const MANDATORY_EMAIL = 'zerotheprogamer@gmail.com';
 const BRAND_LOGO_PATH = 'assets/logo-main.svg';
 
-// Server mail endpoint (all-inkl self-hosted PHP API)
+// Server mail endpoint (Cloudflare Worker or self-hosted PHP API)
+// Example worker: https://kama-mail-api.<subdomain>.workers.dev
 const MAIL_API_ENDPOINT = '/server/api/mail/send.php';
+// Optional shared token for worker auth (x-mail-api-token header)
+const MAIL_API_TOKEN = '';
 
 // Optional auth backend for self-hosted PHP API (all-inkl compatible).
 // Example same origin: /server/api
@@ -1929,9 +1932,13 @@ async function sendEmailsApi(to, subject, text, docNum, pdfBlob, filename) {
   form.append('docNum', docNum);
   form.append('pdf', pdfBlob, filename);
 
+  const headers = {};
+  if (MAIL_API_TOKEN.trim()) headers['x-mail-api-token'] = MAIL_API_TOKEN.trim();
+
   const res = await fetch(MAIL_API_ENDPOINT, {
     method: 'POST',
     credentials: 'include',
+    headers,
     body: form,
   });
 

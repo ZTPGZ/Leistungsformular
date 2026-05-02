@@ -14,11 +14,16 @@ export default {
     }
 
     try {
-      if (!env.RESEND_API_KEY) {
-        return json({ ok: false, error: 'Server not configured (RESEND_API_KEY missing)' }, 500, allowedOrigin);
-      }
       if (!env.FROM_EMAIL) {
         return json({ ok: false, error: 'Server not configured (FROM_EMAIL missing)' }, 500, allowedOrigin);
+      }
+
+      // Optional lightweight auth to prevent abuse of public worker endpoint.
+      if (env.MAIL_API_TOKEN) {
+        const headerToken = request.headers.get('x-mail-api-token') || '';
+        if (!headerToken || headerToken !== env.MAIL_API_TOKEN) {
+          return json({ ok: false, error: 'Unauthorized' }, 401, allowedOrigin);
+        }
       }
 
       const form = await request.formData();
@@ -45,38 +50,150 @@ export default {
       const pdfBase64 = arrayBufferToBase64(pdfBuffer);
       const filename = `${docNum || 'Leistungsnachweis'}.pdf`;
 
-      const resendResp = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: env.FROM_EMAIL,
+      const attempts = [];
+
+      // Primary: Resend (free tier friendly for low volume)
+      if (env.RESEND_API_KEY) {
+        const resendResult = await sendViaResend(env, {
           to,
           subject,
           text,
-          attachments: [
-            {
-              filename,
-              content: pdfBase64,
-            },
-          ],
-        }),
-      });
-
-      if (!resendResp.ok) {
-        const errText = await resendResp.text();
-        return json({ ok: false, error: 'Resend request failed', details: errText }, 502, allowedOrigin);
+          filename,
+          pdfBase64,
+        });
+        attempts.push(resendResult.meta);
+        if (resendResult.ok) {
+          return json({ ok: true, provider: 'resend', id: resendResult.id || null, attempts }, 200, allowedOrigin);
+        }
+      } else {
+        attempts.push({ provider: 'resend', skipped: true, reason: 'RESEND_API_KEY missing' });
       }
 
-      const result = await resendResp.json();
-      return json({ ok: true, provider: 'resend', id: result?.id || null }, 200, allowedOrigin);
+      // Secondary fallback: Brevo (optional, configure only if you want fallback)
+      if (env.BREVO_API_KEY) {
+        const brevoResult = await sendViaBrevo(env, {
+          to,
+          subject,
+          text,
+          filename,
+          pdfBase64,
+        });
+        attempts.push(brevoResult.meta);
+        if (brevoResult.ok) {
+          return json({ ok: true, provider: 'brevo', id: brevoResult.id || null, attempts }, 200, allowedOrigin);
+        }
+      } else {
+        attempts.push({ provider: 'brevo', skipped: true, reason: 'BREVO_API_KEY missing' });
+      }
+
+      return json({ ok: false, error: 'All providers failed', attempts }, 502, allowedOrigin);
     } catch (err) {
       return json({ ok: false, error: 'Unexpected server error', details: String(err?.message || err) }, 500, allowedOrigin);
     }
   },
 };
+
+async function sendViaResend(env, mail) {
+  try {
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.FROM_EMAIL,
+        to: mail.to,
+        subject: mail.subject,
+        text: mail.text,
+        attachments: [
+          {
+            filename: mail.filename,
+            content: mail.pdfBase64,
+          },
+        ],
+      }),
+    });
+
+    if (!resp.ok) {
+      const details = await safeText(resp);
+      return {
+        ok: false,
+        meta: { provider: 'resend', ok: false, status: resp.status, details },
+      };
+    }
+
+    const body = await resp.json().catch(() => ({}));
+    return {
+      ok: true,
+      id: body?.id || null,
+      meta: { provider: 'resend', ok: true, status: resp.status },
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      meta: { provider: 'resend', ok: false, status: 0, details: String(err?.message || err) },
+    };
+  }
+}
+
+async function sendViaBrevo(env, mail) {
+  try {
+    const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: parseSender(env.FROM_EMAIL),
+        to: mail.to.map(email => ({ email })),
+        subject: mail.subject,
+        textContent: mail.text,
+        attachment: [
+          {
+            name: mail.filename,
+            content: mail.pdfBase64,
+          },
+        ],
+      }),
+    });
+
+    if (!resp.ok) {
+      const details = await safeText(resp);
+      return {
+        ok: false,
+        meta: { provider: 'brevo', ok: false, status: resp.status, details },
+      };
+    }
+
+    const body = await resp.json().catch(() => ({}));
+    return {
+      ok: true,
+      id: body?.messageId || null,
+      meta: { provider: 'brevo', ok: true, status: resp.status },
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      meta: { provider: 'brevo', ok: false, status: 0, details: String(err?.message || err) },
+    };
+  }
+}
+
+function parseSender(fromEmail) {
+  const m = String(fromEmail || '').match(/^\s*([^<]+)<([^>]+)>\s*$/);
+  if (!m) return { email: String(fromEmail || '').trim() };
+  return { name: m[1].trim(), email: m[2].trim() };
+}
+
+async function safeText(resp) {
+  try {
+    return await resp.text();
+  } catch {
+    return 'Request failed';
+  }
+}
 
 function corsHeaders(origin) {
   return {

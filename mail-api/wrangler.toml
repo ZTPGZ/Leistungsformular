@@ -7,3 +7,5 @@ compatibility_date = "2026-05-02"
 ALLOWED_ORIGIN = "https://ztpgz.github.io"
 # Verified sender in Resend, e.g. "KAMA Services <noreply@kama-services.eu>"
 FROM_EMAIL = ""
+# Optional: simple shared token checked from request header `x-mail-api-token`
+MAIL_API_TOKEN = ""
