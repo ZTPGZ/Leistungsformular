@@ -750,7 +750,7 @@
         <strong>Testversion</strong>
         Bitte melde dich mit den zugesendeten Zugangsdaten an.<br>
         Fulle das Formular vollstandig aus und speichere einen Leistungsnachweis.<br>
-        Prufe den PDF-Export sowie die E-Mail-Vorbereitung in deinem Mail-Programm.<br>
+        Prufe den PDF-Export sowie den direkten Mailversand (mit Mail-Programm-Fallback).<br>
         Bei Fragen oder Problemen stehe ich jederzeit zur Verfugung.<br>
         Feedback und Anmerkungen bitte direkt an info@kama-services.eu senden.
       </div>
@@ -1093,9 +1093,9 @@
       <h4>3. Speicherung und Übertragung</h4>
       <p>
         Formularinhalte werden ausschließlich lokal im Browser verarbeitet und als PDF
-        exportiert. Eine Übertragung der Formulardaten an externe Server findet nur über
-        den E-Mail-Versand (mailto-Protokoll) statt, der durch das Mailprogramm des Nutzers
-        abgewickelt wird.
+        exportiert. Eine Übertragung der Formulardaten an externe Server findet optional über
+        einen konfigurierten Mail-API-Dienst statt. Ist kein Dienst konfiguriert, erfolgt der
+        E-Mail-Versand über das mailto-Protokoll und das Mailprogramm des Nutzers.
       </p>
       <p>
         Anmeldedaten (Benutzername) werden nur für die Dauer der Browser-Sitzung im
@@ -1266,6 +1266,10 @@ const DEFAULT_FSI = [
 // Mandatory email – always included, cannot be removed by user
 const MANDATORY_EMAIL = 'info@kama-services.eu';
 
+// Optional server mail endpoint. Leave empty to keep mailto fallback.
+// Example: https://kama-mail-api.<your-subdomain>.workers.dev/send
+const MAIL_API_ENDPOINT = '';
+
 /* ============================================================
    STATE
    ============================================================ */
@@ -1301,6 +1305,22 @@ function toast(msg, type = 'info', ms = 4500) {
 function setLoader(on) { $('loader').classList.toggle('on', on); }
 
 function todayISO() { return new Date().toISOString().split('T')[0]; }
+
+function canvasHasInk(canvas) {
+  const ctx = canvas?.getContext('2d');
+  if (!ctx || !canvas.width || !canvas.height) return false;
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] !== 0) return true;
+  }
+  return false;
+}
+
+function getSignatureDataUrl(id) {
+  const c = $(id);
+  if (!c || !canvasHasInk(c)) return null;
+  return c.toDataURL('image/png');
+}
 
 function nextDocNum() {
   const key = 'ks_seq';
@@ -1566,6 +1586,8 @@ function collect() {
     kundeNVO,
     mitarb:   session?.name ?? '',
     emails:   allEmails,
+    sigEmp:   getSignatureDataUrl('sigEmp'),
+    sigKunde: kundeNVO ? null : getSignatureDataUrl('sigKunde'),
   };
 }
 
@@ -1698,21 +1720,28 @@ function buildPDF(data) {
   y = doc.lastAutoTable.finalY + 12;
   if (y > 245) { doc.addPage(); y = 20; }
 
-  // Signature area
+  // Signature area with embedded handwriting where available
   doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
   doc.text('Unterschrift Mitarbeiter:', M, y);
   doc.setFont('helvetica', 'normal');
   doc.text(data.mitarb, M, y + 5);
-  doc.line(M, y + 14, M + 68, y + 14);
+  doc.rect(M, y + 6, 68, 16);
+  if (data.sigEmp) {
+    try { doc.addImage(data.sigEmp, 'PNG', M + 1, y + 7, 66, 14, undefined, 'FAST'); } catch {}
+  }
 
   if (!data.kundeNVO) {
+    const cx = W / 2 + 4;
     doc.setFont('helvetica', 'bold');
-    doc.text('Unterschrift Kunde:', W / 2 + 4, y);
-    doc.line(W / 2 + 4, y + 14, W / 2 + 72, y + 14);
+    doc.text('Unterschrift Kunde:', cx, y);
+    doc.rect(cx, y + 6, 68, 16);
+    if (data.sigKunde) {
+      try { doc.addImage(data.sigKunde, 'PNG', cx + 1, y + 7, 66, 14, undefined, 'FAST'); } catch {}
+    }
   } else {
     doc.setFont('helvetica', 'italic'); doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text('Kunde nicht vor Ort', W / 2 + 4, y + 7);
+    doc.text('Kunde nicht vor Ort', W / 2 + 4, y + 12);
     doc.setTextColor(30, 30, 38);
   }
 
@@ -1729,7 +1758,7 @@ function buildPDF(data) {
 /* ============================================================
    EMAIL
    ============================================================ */
-function sendEmails(data) {
+function buildEmailSummary(data) {
   const summary = [
     `Belegnummer: ${data.docNum}`,
     `Datum: ${new Date(data.datum + 'T00:00:00').toLocaleDateString('de-DE')}`,
@@ -1749,11 +1778,36 @@ function sendEmails(data) {
     `Pflichtempfänger: ${MANDATORY_EMAIL}`,
   ].join('\n');
 
+  return summary;
+}
+
+function sendEmailsMailto(data) {
+  const summary = buildEmailSummary(data);
+
   const sub  = encodeURIComponent(`KAMA Services – Leistungsnachweis ${data.docNum}`);
   const body = encodeURIComponent(summary);
   // Always MANDATORY_EMAIL first, then any additional recipients
   const to   = data.emails.join(',');
   window.open(`mailto:${to}?subject=${sub}&body=${body}`, '_blank');
+}
+
+async function sendEmailsApi(data, pdfBlob, filename) {
+  const form = new FormData();
+  form.append('to', data.emails.join(','));
+  form.append('subject', `KAMA Services – Leistungsnachweis ${data.docNum}`);
+  form.append('text', buildEmailSummary(data));
+  form.append('docNum', data.docNum);
+  form.append('pdf', pdfBlob, filename);
+
+  const res = await fetch(MAIL_API_ENDPOINT, {
+    method: 'POST',
+    body: form,
+  });
+
+  if (!res.ok) {
+    const details = await res.text().catch(() => 'Mail API request failed');
+    throw new Error(details || 'Mail API request failed');
+  }
 }
 
 /* ============================================================
@@ -1770,9 +1824,29 @@ async function handleSave() {
   try {
     const data = collect();
     const pdf  = buildPDF(data);
-    pdf.save(`${data.docNum}.pdf`);
-    sendEmails(data);
-    toast(`${data.docNum} gespeichert – E-Mail-Client geöffnet.`, 'ok', 7000);
+    const filename = `${data.docNum}.pdf`;
+    const pdfBlob  = pdf.output('blob');
+    pdf.save(filename);
+
+    let usedApi = false;
+    if (MAIL_API_ENDPOINT.trim()) {
+      try {
+        await sendEmailsApi(data, pdfBlob, filename);
+        usedApi = true;
+      } catch (mailErr) {
+        console.error(mailErr);
+        sendEmailsMailto(data);
+        toast('Server-Mailversand fehlgeschlagen – Mail-Programm als Fallback geöffnet.', 'err', 7000);
+      }
+    } else {
+      sendEmailsMailto(data);
+    }
+
+    if (usedApi) {
+      toast(`${data.docNum} gespeichert und direkt per Server versendet.`, 'ok', 7000);
+    } else {
+      toast(`${data.docNum} gespeichert – E-Mail-Client geöffnet.`, 'ok', 7000);
+    }
     setTimeout(() => {
       if (confirm('Leistungsnachweis gespeichert.\nFormular für neuen Eintrag zurücksetzen?')) {
         resetForm();
