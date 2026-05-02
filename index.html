@@ -162,21 +162,20 @@
     padding: 2.5rem 2rem 2rem;
     text-align: center;
   }
-  /* Logo component */
-  .kama-logo { display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
-  .kama-logo .l-name {
-    font-size: 2.25rem; font-weight: 900; letter-spacing: .1em;
-    color: var(--white); line-height: 1;
+  /* Shared brand logo */
+  .brand-logo-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
   }
-  .kama-logo .l-bar {
-    width: 100%; height: 2.5px; background: var(--gold); margin: .3rem 0;
+  .login-logo-wrap {
+    width: min(300px, 80vw);
+    margin: 0 auto;
   }
-  .kama-logo .l-services {
-    font-size: .75rem; font-weight: 700; letter-spacing: .35em;
-    color: var(--light); text-transform: uppercase;
+  .hdr-logo-wrap {
+    width: 150px;
   }
-  .kama-logo.dark .l-name { color: var(--dark); }
-  .kama-logo.dark .l-services { color: var(--muted); }
 
   .login-body { padding: 2rem; }
   .login-title { font-size: 1.25rem; font-weight: 700; text-align: center; margin-bottom: 1.5rem; }
@@ -250,8 +249,6 @@
     max-width: 960px; margin: 0 auto;
   }
   .hdr-logo { flex: 1; }
-  .hdr-logo .l-name { font-size: 1.2rem; letter-spacing: .08em; }
-  .hdr-logo .l-services { font-size: .6rem; }
   .hdr-user { display: flex; align-items: center; gap: .625rem; }
   .avatar {
     width: 36px; height: 36px; border-radius: 50%;
@@ -692,6 +689,10 @@
   .legal-body p  { font-size: .875rem; color: var(--text); line-height: 1.7; margin-bottom: .75rem; }
   .legal-body ul { padding-left: 1.25rem; font-size: .875rem; color: var(--text); line-height: 1.7; }
 
+  .mail-review-grid { display: flex; flex-direction: column; gap: .75rem; }
+  .mail-review-grid textarea { min-height: 110px; }
+  .mail-help { font-size: .8125rem; color: var(--muted); }
+
   /* ============================================================
      PRINT
      ============================================================ */
@@ -720,10 +721,10 @@
 <section class="screen active" id="screen-login" role="main" aria-labelledby="loginHeading">
   <div class="login-card">
     <div class="login-header">
-      <div class="kama-logo" aria-label="KAMA Services">
-        <span class="l-name">KAMA</span>
-        <span class="l-bar" aria-hidden="true"></span>
-        <span class="l-services">S E R V I C E S</span>
+      <div class="login-logo-wrap" aria-label="KAMA Services">
+        <img class="brand-logo-img"
+             src="assets/Transparent1080%20x%201080%20px%20Logo%202.svg"
+             alt="KAMA Services Logo">
       </div>
     </div>
     <div class="login-body">
@@ -750,7 +751,7 @@
         <strong>Testversion</strong>
         Bitte melde dich mit den zugesendeten Zugangsdaten an.<br>
         Fulle das Formular vollstandig aus und speichere einen Leistungsnachweis.<br>
-        Prufe den PDF-Export sowie den direkten Mailversand (mit Mail-Programm-Fallback).<br>
+        Prufe den PDF-Export sowie den direkten Mailversand im integrierten E-Mail-Modal.<br>
         Bei Fragen oder Problemen stehe ich jederzeit zur Verfugung.<br>
         Feedback und Anmerkungen bitte direkt an zerotheprogamer@gmail.com senden.
       </div>
@@ -791,6 +792,40 @@
 </div>
 
 <!-- ====================================================
+     MODAL: E-MAIL VERSAND (INTEGRIERT)
+     ==================================================== -->
+<div class="modal-bd" id="mailModal" role="dialog" aria-modal="true" aria-labelledby="mailModalTitle">
+  <div class="modal modal-lg">
+    <div class="modal-hdr">
+      <h3 id="mailModalTitle">E-Mail Versand bestätigen</h3>
+      <button class="modal-close" id="mailModalClose" aria-label="Schließen">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="mail-review-grid">
+        <div class="form-group">
+          <label for="mailTo">Empfänger</label>
+          <input type="text" id="mailTo" placeholder="name@example.com, team@example.com">
+          <div class="mail-help">Mehrere Empfänger durch Komma trennen.</div>
+        </div>
+        <div class="form-group">
+          <label for="mailSubject">Betreff</label>
+          <input type="text" id="mailSubject">
+        </div>
+        <div class="form-group">
+          <label for="mailBody">Nachricht</label>
+          <textarea id="mailBody"></textarea>
+        </div>
+        <div class="mail-help" id="mailAttachmentInfo">Anhang: -</div>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn btn-outline btn-sm" id="mailModalCancel">Abbrechen</button>
+      <button class="btn btn-dark btn-sm" id="mailModalSend">Jetzt senden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
      SCREEN: APP
      ==================================================== -->
 <section class="screen" id="screen-app">
@@ -799,10 +834,10 @@
   <header id="app-header" role="banner">
     <div class="hdr-inner">
       <div class="hdr-logo">
-        <div class="kama-logo" aria-label="KAMA Services">
-          <span class="l-name">KAMA</span>
-          <span class="l-bar" aria-hidden="true"></span>
-          <span class="l-services">S E R V I C E S</span>
+        <div class="hdr-logo-wrap" aria-label="KAMA Services">
+          <img class="brand-logo-img"
+               src="assets/Transparent1080%20x%201080%20px%20Logo%202.svg"
+               alt="KAMA Services Logo">
         </div>
       </div>
       <div class="hdr-user">
@@ -1266,6 +1301,7 @@ const DEFAULT_FSI = [
 
 // Mandatory email – always included, cannot be removed by user
 const MANDATORY_EMAIL = 'zerotheprogamer@gmail.com';
+const BRAND_LOGO_PATH = 'assets/Transparent1080%20x%201080%20px%20Logo%202.svg';
 
 // Optional server mail endpoint. Leave empty to keep mailto fallback.
 // Example: https://kama-mail-api.<your-subdomain>.workers.dev/send
@@ -1275,6 +1311,11 @@ const MAIL_API_ENDPOINT = '';
 // Example same origin: /server/api
 // Example cross origin: https://api.kama-services.eu/server/api
 const AUTH_API_BASE = '';
+
+let pdfLogoDataUrl = null;
+let pendingMailData = null;
+let pendingPdfBlob = null;
+let pendingPdfFilename = '';
 
 /* ============================================================
    STATE
@@ -1326,6 +1367,30 @@ function getSignatureDataUrl(id) {
   const c = $(id);
   if (!c || !canvasHasInk(c)) return null;
   return c.toDataURL('image/png');
+}
+
+async function getPdfLogoDataUrl() {
+  if (pdfLogoDataUrl !== null) return pdfLogoDataUrl;
+
+  pdfLogoDataUrl = await new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const targetW = 360;
+      const targetH = Math.max(90, Math.round(targetW * (img.height / img.width || 0.25)));
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(null); return; }
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(null);
+    img.src = BRAND_LOGO_PATH;
+  });
+
+  return pdfLogoDataUrl;
 }
 
 function nextDocNum() {
@@ -1663,7 +1728,7 @@ function validate() {
 /* ============================================================
    PDF GENERATION
    ============================================================ */
-function buildPDF(data) {
+async function buildPDF(data) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210, M = 14;
@@ -1675,12 +1740,21 @@ function buildPDF(data) {
   doc.setFillColor(201, 162, 39);
   doc.rect(0, 28, W, 1.5, 'F');
 
-  // Logo KAMA
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20); doc.setTextColor(255, 255, 255);
-  doc.text('KAMA', M, 18);
-  doc.setFontSize(8); doc.setCharSpace(2.5);
-  doc.text('SERVICES', M, 25); doc.setCharSpace(0);
+  // Logo from shared brand asset
+  const logoData = await getPdfLogoDataUrl();
+  if (logoData) {
+    try {
+      doc.addImage(logoData, 'PNG', M - 1, 7, 48, 16, undefined, 'FAST');
+    } catch {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14); doc.setTextColor(255, 255, 255);
+      doc.text('KAMA SERVICES', M, 18);
+    }
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14); doc.setTextColor(255, 255, 255);
+    doc.text('KAMA SERVICES', M, 18);
+  }
 
   // Doc title right
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
@@ -1730,8 +1804,8 @@ function buildPDF(data) {
     { content: v.pos, styles: { halign: 'center', fontStyle: 'bold' } },
     v.kz,
     ...v.codes.map(on => ({
-      content: on ? '✓' : '',
-      styles: { halign: 'center', textColor: on ? [201, 162, 39] : [200, 200, 200] },
+      content: on ? 'X' : '',
+      styles: { halign: 'center', textColor: on ? [30, 30, 38] : [180, 180, 180], fontStyle: on ? 'bold' : 'normal' },
     })),
     v.remark || '',
   ]);
@@ -1823,22 +1897,12 @@ function buildEmailSummary(data) {
   return summary;
 }
 
-function sendEmailsMailto(data) {
-  const summary = buildEmailSummary(data);
-
-  const sub  = encodeURIComponent(`KAMA Services – Leistungsnachweis ${data.docNum}`);
-  const body = encodeURIComponent(summary);
-  // Always MANDATORY_EMAIL first, then any additional recipients
-  const to   = data.emails.join(',');
-  window.open(`mailto:${to}?subject=${sub}&body=${body}`, '_blank');
-}
-
-async function sendEmailsApi(data, pdfBlob, filename) {
+async function sendEmailsApi(to, subject, text, docNum, pdfBlob, filename) {
   const form = new FormData();
-  form.append('to', data.emails.join(','));
-  form.append('subject', `KAMA Services – Leistungsnachweis ${data.docNum}`);
-  form.append('text', buildEmailSummary(data));
-  form.append('docNum', data.docNum);
+  form.append('to', to.join(','));
+  form.append('subject', subject);
+  form.append('text', text);
+  form.append('docNum', docNum);
   form.append('pdf', pdfBlob, filename);
 
   const res = await fetch(MAIL_API_ENDPOINT, {
@@ -1849,6 +1913,78 @@ async function sendEmailsApi(data, pdfBlob, filename) {
   if (!res.ok) {
     const details = await res.text().catch(() => 'Mail API request failed');
     throw new Error(details || 'Mail API request failed');
+  }
+}
+
+function openMailModal(data, pdfBlob, filename) {
+  pendingMailData = data;
+  pendingPdfBlob = pdfBlob;
+  pendingPdfFilename = filename;
+
+  $('mailTo').value = data.emails.join(', ');
+  $('mailSubject').value = `KAMA Services – Leistungsnachweis ${data.docNum}`;
+  $('mailBody').value = buildEmailSummary(data);
+  $('mailAttachmentInfo').textContent = `Anhang: ${filename}`;
+  $('mailModal').classList.add('open');
+  $('mailTo').focus();
+}
+
+function closeMailModal() {
+  $('mailModal').classList.remove('open');
+}
+
+async function sendFromMailModal() {
+  if (!pendingMailData || !pendingPdfBlob || !pendingPdfFilename) {
+    toast('Keine Versanddaten vorhanden.', 'err');
+    return;
+  }
+  if (!MAIL_API_ENDPOINT.trim()) {
+    toast('Direkter Versand ist noch nicht konfiguriert (MAIL_API_ENDPOINT fehlt).', 'err', 7000);
+    return;
+  }
+
+  const to = $('mailTo').value
+    .split(',')
+    .map(v => v.trim().toLowerCase())
+    .filter(Boolean);
+  const subject = $('mailSubject').value.trim();
+  const text = $('mailBody').value.trim();
+
+  if (!to.length) {
+    toast('Bitte mindestens einen Empfänger eintragen.', 'err');
+    return;
+  }
+  if (!subject) {
+    toast('Bitte einen Betreff eintragen.', 'err');
+    return;
+  }
+  if (!text) {
+    toast('Bitte eine Nachricht eintragen.', 'err');
+    return;
+  }
+
+  setLoader(true);
+  try {
+    await sendEmailsApi(
+      to,
+      subject,
+      text,
+      pendingMailData.docNum,
+      pendingPdfBlob,
+      pendingPdfFilename
+    );
+    closeMailModal();
+    toast(`${pendingMailData.docNum} wurde erfolgreich versendet.`, 'ok', 7000);
+    setTimeout(() => {
+      if (confirm('Leistungsnachweis versendet.\nFormular für neuen Eintrag zurücksetzen?')) {
+        resetForm();
+      }
+    }, 300);
+  } catch (err) {
+    console.error(err);
+    toast('Versand fehlgeschlagen. Bitte Eingaben prüfen und erneut senden.', 'err', 7000);
+  } finally {
+    setLoader(false);
   }
 }
 
@@ -1865,35 +2001,12 @@ async function handleSave() {
   setLoader(true);
   try {
     const data = collect();
-    const pdf  = buildPDF(data);
+    const pdf  = await buildPDF(data);
     const filename = `${data.docNum}.pdf`;
     const pdfBlob  = pdf.output('blob');
     pdf.save(filename);
-
-    let usedApi = false;
-    if (MAIL_API_ENDPOINT.trim()) {
-      try {
-        await sendEmailsApi(data, pdfBlob, filename);
-        usedApi = true;
-      } catch (mailErr) {
-        console.error(mailErr);
-        sendEmailsMailto(data);
-        toast('Server-Mailversand fehlgeschlagen – Mail-Programm als Fallback geöffnet.', 'err', 7000);
-      }
-    } else {
-      sendEmailsMailto(data);
-    }
-
-    if (usedApi) {
-      toast(`${data.docNum} gespeichert und direkt per Server versendet.`, 'ok', 7000);
-    } else {
-      toast(`${data.docNum} gespeichert – E-Mail-Client geöffnet.`, 'ok', 7000);
-    }
-    setTimeout(() => {
-      if (confirm('Leistungsnachweis gespeichert.\nFormular für neuen Eintrag zurücksetzen?')) {
-        resetForm();
-      }
-    }, 400);
+    openMailModal(data, pdfBlob, filename);
+    toast(`${data.docNum} gespeichert. Bitte Versand im E-Mail-Modal bestätigen.`, 'info', 7000);
   } catch (e) {
     console.error(e);
     toast('Fehler beim Speichern. Bitte erneut versuchen.', 'err');
@@ -2157,6 +2270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       closeModal('datenschutzModal');
       closeModal('impressumModal');
       closeModal('forgotModal');
+      closeMailModal();
     }
   });
 
@@ -2168,6 +2282,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('forgotModalClose').addEventListener('click',  closeForgotModal);
   $('forgotModalCancel').addEventListener('click', closeForgotModal);
   $('forgotModal').addEventListener('click', e => { if (e.target === $('forgotModal')) closeForgotModal(); });
+
+  $('mailModalClose').addEventListener('click', closeMailModal);
+  $('mailModalCancel').addEventListener('click', closeMailModal);
+  $('mailModalSend').addEventListener('click', sendFromMailModal);
+  $('mailModal').addEventListener('click', e => { if (e.target === $('mailModal')) closeMailModal(); });
 
   $('forgotModalSend').addEventListener('click', () => {
     const name    = $('forgotName').value.trim();
