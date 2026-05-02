@@ -14,6 +14,8 @@ export default {
     }
 
     try {
+      const mailMode = String(env.MAIL_MODE || 'live').toLowerCase();
+
       if (!env.FROM_EMAIL) {
         return json({ ok: false, error: 'Server not configured (FROM_EMAIL missing)' }, 500, allowedOrigin);
       }
@@ -47,8 +49,25 @@ export default {
       }
 
       const pdfBuffer = await pdf.arrayBuffer();
-      const pdfBase64 = arrayBufferToBase64(pdfBuffer);
       const filename = `${docNum || 'Leistungsnachweis'}.pdf`;
+
+      // Dry-run mode for end-to-end Worker/Wrangler testing without provider send.
+      if (mailMode === 'dry-run') {
+        return json({
+          ok: true,
+          provider: 'worker-dry-run',
+          dryRun: true,
+          accepted: {
+            to,
+            subject,
+            docNum,
+            filename,
+            pdfBytes: pdfBuffer.byteLength,
+          },
+        }, 200, allowedOrigin);
+      }
+
+      const pdfBase64 = arrayBufferToBase64(pdfBuffer);
 
       const attempts = [];
 
@@ -199,7 +218,7 @@ function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, x-mail-api-token',
   };
 }
 
