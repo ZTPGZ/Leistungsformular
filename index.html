@@ -8,6 +8,8 @@
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- Hashed account credentials (SHA-256) – load before main script -->
+  <script src="accounts.js" onerror="console.warn('accounts.js not found – using fallback users.')"></script>
 
   <style>
   /* ============================================================
@@ -750,7 +752,7 @@
         Fulle das Formular vollstandig aus und speichere einen Leistungsnachweis.<br>
         Prufe den PDF-Export sowie die E-Mail-Vorbereitung in deinem Mail-Programm.<br>
         Bei Fragen oder Problemen stehe ich jederzeit zur Verfugung.<br>
-        Feedback und Anmerkungen bitte direkt an KamaServiceTest@gmail.com senden.
+        Feedback und Anmerkungen bitte direkt an info@kamaservice.com senden.
       </div>
     </div>
   </div>
@@ -985,7 +987,7 @@
           <label>
             E-Mail Empfänger
             <span style="font-size:.8rem;font-weight:400;color:var(--muted);margin-left:.25rem">
-              (KamaServiceTest@gmail.com wird immer als Pflichtempfänger gesendet)
+              (info@kamaservice.com wird immer als Pflichtempfänger gesendet)
             </span>
           </label>
           <div class="email-wrap" id="emailWrap" role="group" aria-label="E-Mail Adressen">
@@ -1235,13 +1237,20 @@
    CONFIGURATION
    ============================================================ */
 
-// Predefined user accounts
-// IMPORTANT: In production, replace with a proper backend auth system
-const USERS = [
-  { user: 'admin', pass: 'Kama@2026!', role: 'admin', name: 'Administrator', initials: 'AD' },
-  { user: 'mitarbeiter.demo1', pass: 'Kama#1234', role: 'employee', name: 'Max Mustermann', initials: 'MM' },
-  { user: 'mitarbeiter.demo2', pass: 'Kama#5678', role: 'employee', name: 'Erika Mayer', initials: 'EM' }
+// SHA-256 hash helper (Web Crypto API – always available in modern browsers)
+async function hashPwd(plain) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(plain));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Test account: admin / admin — always available regardless of accounts.js
+// SHA-256('admin') = 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+const ADMIN_FALLBACK = [
+  { user: 'admin', pass: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', role: 'admin', name: 'Administrator', initials: 'AD' }
 ];
+
+// USERS: merge admin fallback with optional accounts.js (window.KAMA_USERS)
+const USERS = [...ADMIN_FALLBACK, ...(window.KAMA_USERS || [])];
 
 
 // Default FSI code definitions (user with admin role can edit and save these)
@@ -1255,7 +1264,7 @@ const DEFAULT_FSI = [
 ];
 
 // Mandatory email – always included, cannot be removed by user
-const MANDATORY_EMAIL = 'kamaservicetest@gmail.com';
+const MANDATORY_EMAIL = 'info@kamaservice.com';
 
 /* ============================================================
    STATE
@@ -1303,9 +1312,10 @@ function nextDocNum() {
 /* ============================================================
    AUTH
    ============================================================ */
-function login(username, password) {
+async function login(username, password) {
+  const hash = await hashPwd(password);
   return USERS.find(u =>
-    u.user.toLowerCase() === username.toLowerCase() && u.pass === password
+    u.user.toLowerCase() === username.toLowerCase() && u.pass === hash
   ) ?? null;
 }
 
@@ -1959,11 +1969,11 @@ function initApp() {
 document.addEventListener('DOMContentLoaded', () => {
 
   // ── LOGIN ──
-  $('loginForm').addEventListener('submit', e => {
+  $('loginForm').addEventListener('submit', async e => {
     e.preventDefault();
     const u = $('loginUser').value.trim();
     const p = $('loginPwd').value;
-    const found = login(u, p);
+    const found = await login(u, p);
     if (found) {
       $('loginErr').classList.remove('show');
       startSession(found);
