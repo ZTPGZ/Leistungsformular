@@ -88,24 +88,7 @@ export default {
         attempts.push({ provider: 'resend', skipped: true, reason: 'RESEND_API_KEY missing' });
       }
 
-      // Secondary fallback: Brevo (optional, configure only if you want fallback)
-      if (env.BREVO_API_KEY) {
-        const brevoResult = await sendViaBrevo(env, {
-          to,
-          subject,
-          text,
-          filename,
-          pdfBase64,
-        });
-        attempts.push(brevoResult.meta);
-        if (brevoResult.ok) {
-          return json({ ok: true, provider: 'brevo', id: brevoResult.id || null, attempts }, 200, allowedOrigin);
-        }
-      } else {
-        attempts.push({ provider: 'brevo', skipped: true, reason: 'BREVO_API_KEY missing' });
-      }
-
-      return json({ ok: false, error: 'All providers failed', attempts }, 502, allowedOrigin);
+      return json({ ok: false, error: 'Resend failed', attempts }, 502, allowedOrigin);
     } catch (err) {
       return json({ ok: false, error: 'Unexpected server error', details: String(err?.message || err) }, 500, allowedOrigin);
     }
@@ -154,56 +137,6 @@ async function sendViaResend(env, mail) {
       meta: { provider: 'resend', ok: false, status: 0, details: String(err?.message || err) },
     };
   }
-}
-
-async function sendViaBrevo(env, mail) {
-  try {
-    const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': env.BREVO_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: parseSender(env.FROM_EMAIL),
-        to: mail.to.map(email => ({ email })),
-        subject: mail.subject,
-        textContent: mail.text,
-        attachment: [
-          {
-            name: mail.filename,
-            content: mail.pdfBase64,
-          },
-        ],
-      }),
-    });
-
-    if (!resp.ok) {
-      const details = await safeText(resp);
-      return {
-        ok: false,
-        meta: { provider: 'brevo', ok: false, status: resp.status, details },
-      };
-    }
-
-    const body = await resp.json().catch(() => ({}));
-    return {
-      ok: true,
-      id: body?.messageId || null,
-      meta: { provider: 'brevo', ok: true, status: resp.status },
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      meta: { provider: 'brevo', ok: false, status: 0, details: String(err?.message || err) },
-    };
-  }
-}
-
-function parseSender(fromEmail) {
-  const m = String(fromEmail || '').match(/^\s*([^<]+)<([^>]+)>\s*$/);
-  if (!m) return { email: String(fromEmail || '').trim() };
-  return { name: m[1].trim(), email: m[2].trim() };
 }
 
 async function safeText(resp) {
