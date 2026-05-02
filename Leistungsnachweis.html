@@ -1,0 +1,74 @@
+html<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Leistungsnachweis Fahrzeugreinigung</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    form { max-width: 600px; margin: auto; border: 1px solid #ccc; padding: 20px; border-radius: 8px; }
+    h2 { text-align: center; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input[type=text], input[type=date], input[type=time], select, textarea { width: 100%; padding: 8px; box-sizing: border-box; }
+    .checkbox-group { display: flex; flex-wrap: wrap; }
+    .checkbox-group div { width: 50%; }
+    button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
+    button:hover { background-color: #0056b3; }
+</style>
+</head>
+<body>
+
+<form action="/submit-leistungsnachweis" method="post">
+    <h2>Leistungsnachweis Fahrzeugreinigung</h2>
+    
+    <div class="form-group">
+        <label>Datum:</label>
+        <input type="date" name="datum" required>
+    </div>
+    
+    <div class="form-group">
+        <label>Fahrzeug (Kennzeichen/Modell):</label>
+        <input type="text" name="fahrzeug" placeholder="B-XY 1234 / VW Golf" required>
+    </div>
+
+    <div class="form-group">
+        <label>Mitarbeiter:</label>
+        <input type="text" name="mitarbeiter" required>
+    </div>
+
+    <div class="form-group">
+        <label>Art der Reinigung:</label>
+        <select name="reinigungsart">
+            <option value="basis">Basisreinigung (Außen + Innen)</option>
+            <option value="intensiv">Intensivreinigung (Politur, Innenraum Intensiv)</option>
+            <option value="aufbereitung">Komplettaufbereitung</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Leistungsumfang:</label>
+        <div class="checkbox-group">
+            <div><input type="checkbox" name="leistung" value="aussen"> Außenwäsche</div>
+            <div><input type="checkbox" name="leistung" value="innen"> Innenraumreinigung</div>
+            <div><input type="checkbox" name="leistung" value="felgen"> Felgenreinigung</div>
+            <div><input type="checkbox" name="leistung" value="scheiben"> Scheibenreinigung</div>
+            <div><input type="checkbox" name="leistung" value="saugen"> Saugen</div>
+            <div><input type="checkbox" name="leistung" value="politur"> Politur</div>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Zustand / Bemerkungen:</label>
+        <textarea name="bemerkungen" rows="3"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Dauer (Minuten):</label>
+        <input type="number" name="dauer" placeholder="z.B. 60">
+    </div>
+
+    <button type="submit">Leistungsnachweis speichern</button>
+</form>
+
+</body>
+</html>

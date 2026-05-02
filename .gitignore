@@ -1,0 +1,12 @@
+# Sensitive account exports
+accounts_*.csv
+*.private.csv
+
+# Optional local credential sources
+accounts.local.json
+accounts.local.csv
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
