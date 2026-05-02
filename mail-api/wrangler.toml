@@ -6,6 +6,6 @@ compatibility_date = "2026-05-02"
 # Must match your frontend origin in production, e.g. "https://ztpgz.github.io"
 ALLOWED_ORIGIN = "https://ztpgz.github.io"
 # Verified sender in Resend, e.g. "KAMA Services <noreply@kama-services.eu>"
-FROM_EMAIL = ""
+FROM_EMAIL = "KAMA Services <info@kama-services.eu>"
 # Optional: simple shared token checked from request header `x-mail-api-token`
 MAIL_API_TOKEN = ""
