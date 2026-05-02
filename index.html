@@ -1906,6 +1906,11 @@ async function buildPDF(data) {
    ============================================================ */
 function buildEmailSummary(data) {
   const summary = [
+    `Guten Tag,`,
+    ``,
+    `anbei erhalten Sie den Leistungsnachweis ${data.docNum} für die durchgeführte Fahrzeugreinigung. Bitte überprüfen Sie die beigefügte PDF-Datei und melden Sie sich bei etwaigen Rückfragen gerne jederzeit bei uns.`,
+    ``,
+    `──────────────────────────────`,
     `Belegnummer: ${data.docNum}`,
     `Datum: ${new Date(data.datum + 'T00:00:00').toLocaleDateString('de-DE')}`,
     `Kunde: ${data.kunde}`,
@@ -1922,6 +1927,9 @@ function buildEmailSummary(data) {
     `Kunde vor Ort: ${data.kundeNVO ? 'Nein' : 'Ja'}`,
     '',
     `Pflichtempfänger: ${MANDATORY_EMAIL}`,
+    ``,
+    `Mit freundlichen Grüßen`,
+    `KAMA Services`,
   ].join('\n');
 
   return summary;
