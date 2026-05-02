@@ -170,11 +170,11 @@
     object-fit: contain;
   }
   .login-logo-wrap {
-    width: min(300px, 80vw);
+    width: clamp(180px, 58vw, 320px);
     margin: 0 auto;
   }
   .hdr-logo-wrap {
-    width: 150px;
+    width: clamp(96px, 18vw, 168px);
   }
 
   .login-body { padding: 2rem; }
@@ -723,7 +723,7 @@
     <div class="login-header">
       <div class="login-logo-wrap" aria-label="KAMA Services">
         <img class="brand-logo-img"
-             src="assets/Transparent1080%20x%201080%20px%20Logo%202.svg"
+             src="assets/Transparent1080%20x%201080%20px%20Logo%201.svg"
              alt="KAMA Services Logo">
       </div>
     </div>
@@ -836,7 +836,7 @@
       <div class="hdr-logo">
         <div class="hdr-logo-wrap" aria-label="KAMA Services">
           <img class="brand-logo-img"
-               src="assets/Transparent1080%20x%201080%20px%20Logo%202.svg"
+            src="assets/Transparent1080%20x%201080%20px%20Logo%201.svg"
                alt="KAMA Services Logo">
         </div>
       </div>
@@ -1301,7 +1301,7 @@ const DEFAULT_FSI = [
 
 // Mandatory email – always included, cannot be removed by user
 const MANDATORY_EMAIL = 'zerotheprogamer@gmail.com';
-const BRAND_LOGO_PATH = 'assets/Transparent1080%20x%201080%20px%20Logo%202.svg';
+const BRAND_LOGO_PATH = 'assets/Transparent1080%20x%201080%20px%20Logo%201.svg';
 
 // Server mail endpoint (all-inkl self-hosted PHP API)
 const MAIL_API_ENDPOINT = '/server/api/mail/send.php';
