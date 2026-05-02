@@ -194,6 +194,18 @@
   }
   .login-forgot-link:hover { color: var(--gold); }
 
+  .test-hint {
+    margin-top: 1.5rem;
+    border: 1px solid rgba(201,162,39,.35);
+    border-radius: var(--r-sm);
+    background: rgba(201,162,39,.07);
+    padding: .875rem 1rem;
+    font-size: .8rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .test-hint strong { color: var(--dark); display: block; margin-bottom: .4rem; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+
   /* ── FORGOT MODAL ── */
   .forgot-modal-bd {
     display: none; position: fixed; inset: 0;
@@ -732,6 +744,14 @@
         <button type="submit" class="btn btn-dark btn-full">Anmelden →</button>
       </form>
       <button class="login-forgot-link" id="btnForgotAccess">Zugangsdaten vergessen?</button>
+      <div class="test-hint" role="note">
+        <strong>Testversion</strong>
+        Bitte melde dich mit den zugesendeten Zugangsdaten an.<br>
+        Fulle das Formular vollstandig aus und speichere einen Leistungsnachweis.<br>
+        Prufe den PDF-Export sowie die E-Mail-Vorbereitung in deinem Mail-Programm.<br>
+        Bei Fragen oder Problemen stehe ich jederzeit zur Verfugung.<br>
+        Feedback und Anmerkungen bitte direkt an KamaServiceTest@gmail.com senden.
+      </div>
     </div>
   </div>
 </section>
