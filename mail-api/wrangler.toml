@@ -6,9 +6,8 @@ compatibility_date = "2026-05-02"
 # Must match your frontend origin in production, e.g. "https://ztpgz.github.io"
 ALLOWED_ORIGIN = "https://ztpgz.github.io"
 # "dry-run" = accept request but do not send via provider, "live" = real provider send
-MAIL_MODE = "dry-run"
+MAIL_MODE = "live"
 # Verified sender in Resend, e.g. "KAMA Services <noreply@kama-services.eu>"
-# When kama-services.eu is verified in Resend, switch back to: KAMA Services <info@kama-services.eu>
-FROM_EMAIL = "KAMA Services <onboarding@resend.dev>"
+FROM_EMAIL = "KAMA Services <info@kama-services.eu>"
 # Optional: simple shared token checked from request header `x-mail-api-token`
 MAIL_API_TOKEN = ""
