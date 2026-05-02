@@ -176,6 +176,12 @@
   .hdr-logo-wrap {
     width: clamp(96px, 18vw, 168px);
   }
+  @media (max-width: 360px) {
+    .hdr-logo-wrap { width: 88px; }
+  }
+  @media (min-width: 720px) and (max-width: 1100px) {
+    .login-logo-wrap { width: clamp(240px, 38vw, 340px); }
+  }
 
   .login-body { padding: 2rem; }
   .login-title { font-size: 1.25rem; font-weight: 700; text-align: center; margin-bottom: 1.5rem; }
