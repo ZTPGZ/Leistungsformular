@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>KAMA Services - Benutzerverwaltung</title>
+  <style>
+    :root {
+      --dark: #1e1e26;
+      --gold: #c9a227;
+      --bg: #f6f5f1;
+      --line: #dedbd2;
+      --ok: #13795b;
+      --err: #c0392b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(170deg, #f7f6f2 0%, #efede5 100%);
+      color: var(--dark);
+    }
+    header {
+      background: var(--dark);
+      color: white;
+      border-bottom: 3px solid var(--gold);
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .brand { font-weight: 700; letter-spacing: .08em; }
+    .wrap { max-width: 1100px; margin: 22px auto; padding: 0 14px 28px; }
+    .card {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(0,0,0,.05);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      margin: 0;
+      padding: 12px 14px;
+      background: #f8f7f3;
+      border-bottom: 1px solid var(--line);
+      font-size: 1rem;
+    }
+    .content { padding: 14px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .grid .full { grid-column: span 2; }
+    label { display: block; font-size: .82rem; margin-bottom: 4px; font-weight: 600; }
+    input, select {
+      width: 100%;
+      height: 40px;
+      border: 1px solid #cfcabf;
+      border-radius: 8px;
+      padding: 0 10px;
+      font-size: .92rem;
+    }
+    .btn {
+      border: 1px solid var(--dark);
+      background: var(--dark);
+      color: white;
+      border-radius: 8px;
+      height: 40px;
+      padding: 0 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn.alt { background: white; color: var(--dark); }
+    .btn.warn { border-color: #8f2f23; background: #8f2f23; }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .status { font-size: .88rem; margin-top: 8px; min-height: 1.2em; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 8px; font-size: .88rem; }
+    th { background: #faf9f5; }
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .row-actions .btn { height: 32px; padding: 0 10px; font-size: .8rem; }
+    .muted { font-size: .8rem; color: #666; }
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .grid .full { grid-column: span 2; }
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tr { border-bottom: 1px solid var(--line); padding: 8px 0; }
+      td { border: 0; padding: 4px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">KAMA SERVICES - Benutzerverwaltung</div>
+    <div>
+      <a href="index.html" style="color:white;text-decoration:none;border:1px solid #fff;padding:8px 10px;border-radius:8px">Zuruck zum Formular</a>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>Neuen Benutzer anlegen</h2>
+      <div class="content">
+        <div class="grid">
+          <div>
+            <label for="cUser">Benutzername</label>
+            <input id="cUser" placeholder="max.mustermann">
+          </div>
+          <div>
+            <label for="cName">Vollstandiger Name</label>
+            <input id="cName" placeholder="Max Mustermann">
+          </div>
+          <div>
+            <label for="cInit">Initialen</label>
+            <input id="cInit" maxlength="8" placeholder="MM">
+          </div>
+          <div>
+            <label for="cRole">Rolle</label>
+            <select id="cRole">
+              <option value="employee">employee</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <div>
+            <label for="cPwd">Passwort</label>
+            <input id="cPwd" type="password" placeholder="mind. 8 Zeichen">
+          </div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="btnCreate">Benutzer erstellen</button>
+          <button class="btn alt" id="btnReload">Liste neu laden</button>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Benutzerliste</h2>
+      <div class="content">
+        <div class="muted">Hinweis: Loschen setzt den Benutzer auf inaktiv. Passwort-Reset erfolgt uber Speichern mit neuem Passwort.</div>
+        <div style="overflow:auto;margin-top:8px">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Benutzername</th>
+                <th>Name</th>
+                <th>Initialen</th>
+                <th>Rolle</th>
+                <th>Aktiv</th>
+                <th>Neues Passwort</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const AUTH_API_BASE = '/server/api';
+    let bootstrapMode = false;
+
+    const $ = id => document.getElementById(id);
+
+    async function api(path, payload = null, method = 'GET') {
+      const opts = { method, credentials: 'include', headers: {} };
+      if (payload !== null) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(payload);
+      }
+      const res = await fetch(`${AUTH_API_BASE}${path}`, opts);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+
+    function setStatus(msg, type = 'ok') {
+      const el = $('status');
+      el.textContent = msg;
+      el.className = `status ${type}`;
+    }
+
+    function rowTemplate(u) {
+      return `
+        <tr data-id="${u.id}">
+          <td>${u.id}</td>
+          <td>${u.user}</td>
+          <td><input data-k="name" value="${escapeHtml(u.name)}"></td>
+          <td><input data-k="initials" value="${escapeHtml(u.initials)}"></td>
+          <td>
+            <select data-k="role">
+              <option value="employee" ${u.role === 'employee' ? 'selected' : ''}>employee</option>
+              <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>admin</option>
+            </select>
+          </td>
+          <td>
+            <select data-k="isActive">
+              <option value="1" ${u.isActive ? 'selected' : ''}>aktiv</option>
+              <option value="0" ${!u.isActive ? 'selected' : ''}>inaktiv</option>
+            </select>
+          </td>
+          <td><input data-k="password" type="password" placeholder="leer lassen = unverandert"></td>
+          <td>
+            <div class="row-actions">
+              <button class="btn alt" data-a="save">Speichern</button>
+              <button class="btn warn" data-a="delete">Inaktiv</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function escapeHtml(v) {
+      return String(v)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    async function loadUsers() {
+      const data = await api('/users/list.php');
+      $('tbody').innerHTML = data.users.map(rowTemplate).join('');
+      setStatus(`Benutzer geladen: ${data.users.length}`, 'ok');
+    }
+
+    async function ensureAdmin() {
+      try {
+        const me = await api('/auth/me.php');
+        if (me.user.role !== 'admin') {
+          setStatus('Kein Admin-Zugriff. Bitte als Admin einloggen.', 'err');
+          $('btnCreate').disabled = true;
+          return false;
+        }
+        bootstrapMode = false;
+        return true;
+      } catch {
+        bootstrapMode = true;
+        setStatus('Bootstrap-Modus: Ersten Admin-Benutzer erstellen.', 'ok');
+        return false;
+      }
+    }
+
+    async function createUser() {
+      const payload = {
+        username: $('cUser').value.trim().toLowerCase(),
+        name: $('cName').value.trim(),
+        initials: $('cInit').value.trim().toUpperCase(),
+        role: $('cRole').value,
+        password: $('cPwd').value,
+      };
+      await api('/users/create.php', payload, 'POST');
+      $('cUser').value = '';
+      $('cName').value = '';
+      $('cInit').value = '';
+      $('cPwd').value = '';
+      setStatus('Benutzer erstellt.', 'ok');
+
+      if (bootstrapMode) {
+        await api('/auth/login.php', {
+          username: payload.username,
+          password: payload.password,
+        }, 'POST');
+        bootstrapMode = false;
+      }
+
+      await loadUsers();
+    }
+
+    async function saveRow(tr) {
+      const payload = {
+        id: Number(tr.dataset.id),
+        name: tr.querySelector('[data-k="name"]').value.trim(),
+        initials: tr.querySelector('[data-k="initials"]').value.trim().toUpperCase(),
+        role: tr.querySelector('[data-k="role"]').value,
+        isActive: tr.querySelector('[data-k="isActive"]').value === '1',
+        password: tr.querySelector('[data-k="password"]').value,
+      };
+      await api('/users/update.php', payload, 'POST');
+      setStatus(`Benutzer ${payload.id} gespeichert.`, 'ok');
+      await loadUsers();
+    }
+
+    async function deactivateRow(tr) {
+      const id = Number(tr.dataset.id);
+      await api('/users/delete.php', { id }, 'POST');
+      setStatus(`Benutzer ${id} wurde auf inaktiv gesetzt.`, 'ok');
+      await loadUsers();
+    }
+
+    $('btnReload').addEventListener('click', () => loadUsers().catch(err => setStatus(err.message, 'err')));
+    $('btnCreate').addEventListener('click', () => createUser().catch(err => setStatus(err.message, 'err')));
+    $('tbody').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-a]');
+      if (!btn) return;
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      const action = btn.dataset.a;
+      if (action === 'save') {
+        saveRow(tr).catch(err => setStatus(err.message, 'err'));
+      }
+      if (action === 'delete') {
+        if (confirm('Benutzer wirklich inaktiv setzen?')) {
+          deactivateRow(tr).catch(err => setStatus(err.message, 'err'));
+        }
+      }
+    });
+
+    (async () => {
+      try {
+        const isAdmin = await ensureAdmin();
+        if (isAdmin) {
+          await loadUsers();
+        }
+      } catch (err) {
+        setStatus(`API nicht erreichbar oder keine Session: ${err.message}`, 'err');
+      }
+    })();
+  </script>
+</body>
+</html>

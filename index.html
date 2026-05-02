@@ -808,6 +808,7 @@
       <div class="hdr-user">
         <div class="avatar" id="avatarEl" aria-hidden="true">MA</div>
         <span class="username" id="usernameEl">Mitarbeiter</span>
+        <a class="btn btn-ghost btn-sm" id="btnUserAdmin" href="users-admin.html" style="display:none">Benutzer</a>
         <button class="btn btn-ghost btn-sm" id="btnLogout">Abmelden</button>
       </div>
     </div>
@@ -1270,6 +1271,11 @@ const MANDATORY_EMAIL = 'zerotheprogamer@gmail.com';
 // Example: https://kama-mail-api.<your-subdomain>.workers.dev/send
 const MAIL_API_ENDPOINT = '';
 
+// Optional auth backend for self-hosted PHP API (all-inkl compatible).
+// Example same origin: /server/api
+// Example cross origin: https://api.kama-services.eu/server/api
+const AUTH_API_BASE = '';
+
 /* ============================================================
    STATE
    ============================================================ */
@@ -1333,6 +1339,22 @@ function nextDocNum() {
    AUTH
    ============================================================ */
 async function login(username, password) {
+  if (AUTH_API_BASE.trim()) {
+    try {
+      const res = await fetch(`${AUTH_API_BASE}/auth/login.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.ok ? data.user : null;
+    } catch {
+      return null;
+    }
+  }
+
   const hash = await hashPwd(password);
   return USERS.find(u =>
     u.user.toLowerCase() === username.toLowerCase() && u.pass === hash
@@ -1344,6 +1366,7 @@ function startSession(user) {
   sessionStorage.setItem('ks_u', user.user);
   $('avatarEl').textContent  = user.initials;
   $('usernameEl').textContent = user.name;
+  $('btnUserAdmin').style.display = user.role === 'admin' ? 'inline-flex' : 'none';
   show('screen-app');
   initApp();
 }
@@ -1352,13 +1375,32 @@ function endSession() {
   session = null;
   kundeNVO = false;
   sessionStorage.removeItem('ks_u');
+  $('btnUserAdmin').style.display = 'none';
   $('loginForm').reset();
   $('loginErr').classList.remove('show');
   show('screen-login');
   $('loginUser').focus();
 }
 
-function tryRestoreSession() {
+async function tryRestoreSession() {
+  if (AUTH_API_BASE.trim()) {
+    try {
+      const res = await fetch(`${AUTH_API_BASE}/auth/me.php`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (data?.ok && data.user) {
+        startSession(data.user);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   const u = sessionStorage.getItem('ks_u');
   if (!u) return false;
   const found = USERS.find(x => x.user === u);
@@ -2040,7 +2082,7 @@ function initApp() {
 /* ============================================================
    BOOTSTRAP
    ============================================================ */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
 
   // ── LOGIN ──
   $('loginForm').addEventListener('submit', async e => {
@@ -2059,8 +2101,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── LOGOUT ──
-  $('btnLogout').addEventListener('click', () => {
-    if (confirm('Wirklich abmelden?')) endSession();
+  $('btnLogout').addEventListener('click', async () => {
+    if (!confirm('Wirklich abmelden?')) return;
+    if (!AUTH_API_BASE.trim()) {
+      endSession();
+      return;
+    }
+    try {
+      await fetch(`${AUTH_API_BASE}/auth/logout.php`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {}
+    endSession();
   });
 
   // ── ROW MANAGEMENT ──
@@ -2155,7 +2208,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('emailWrap').addEventListener('click', () => $('emailInp').focus());
 
   // ── RESTORE SESSION or show login ──
-  if (!tryRestoreSession()) {
+  if (!await tryRestoreSession()) {
     show('screen-login');
     $('loginUser').focus();
   }
