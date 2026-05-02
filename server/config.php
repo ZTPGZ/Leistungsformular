@@ -9,5 +9,10 @@ return [
     // Comma-separated allowed origins, e.g. https://ztpgz.github.io,https://app.kama-services.eu
     'allowed_origins' => getenv('KAMA_ALLOWED_ORIGINS') ?: '*',
 
+    // Outgoing mail settings for server/api/mail/send.php
+    // Use valid sender on your all-inkl domain, e.g. noreply@kama-services.eu
+    'mail_from' => getenv('KAMA_MAIL_FROM') ?: '',
+    'mail_reply_to' => getenv('KAMA_MAIL_REPLY_TO') ?: '',
+
     'session_name' => 'kama_sid',
 ];

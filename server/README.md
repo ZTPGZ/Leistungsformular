@@ -27,11 +27,14 @@ PHP + MySQL Benutzerverwaltung (all-inkl geeignet)
   - /server/api/users/create.php
   - /server/api/users/update.php
   - /server/api/users/delete.php
+  - /server/api/mail/send.php
 
 5) Frontend aktivieren
 - In index.html AUTH_API_BASE setzen, z. B.:
   /server/api
 - Danach nutzt Login die PHP-API statt lokale accounts.js.
+- In index.html ist MAIL_API_ENDPOINT bereits auf /server/api/mail/send.php gesetzt.
+- In server/config.php mail_from und optional mail_reply_to setzen.
 
 6) Ersten Admin erstellen
 - users-admin.html aufrufen.
@@ -43,3 +46,4 @@ Sicherheitshinweise
 - config.php nie mit echten Passwörtern öffentlich im Repo belassen.
 - Admin-Startpasswort sofort ändern.
 - HTTPS erzwingen.
+- mail_from muss eine auf all-inkl existierende Absenderadresse sein.

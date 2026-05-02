@@ -1303,9 +1303,8 @@ const DEFAULT_FSI = [
 const MANDATORY_EMAIL = 'zerotheprogamer@gmail.com';
 const BRAND_LOGO_PATH = 'assets/Transparent1080%20x%201080%20px%20Logo%202.svg';
 
-// Optional server mail endpoint. Leave empty to keep mailto fallback.
-// Example: https://kama-mail-api.<your-subdomain>.workers.dev/send
-const MAIL_API_ENDPOINT = '';
+// Server mail endpoint (all-inkl self-hosted PHP API)
+const MAIL_API_ENDPOINT = '/server/api/mail/send.php';
 
 // Optional auth backend for self-hosted PHP API (all-inkl compatible).
 // Example same origin: /server/api
@@ -1907,6 +1906,7 @@ async function sendEmailsApi(to, subject, text, docNum, pdfBlob, filename) {
 
   const res = await fetch(MAIL_API_ENDPOINT, {
     method: 'POST',
+    credentials: 'include',
     body: form,
   });
 
