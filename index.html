@@ -1934,10 +1934,12 @@ async function sendEmailsApi(to, subject, text, docNum, pdfBlob, filename) {
 
   const headers = {};
   if (MAIL_API_TOKEN.trim()) headers['x-mail-api-token'] = MAIL_API_TOKEN.trim();
+  const endpointUrl = new URL(MAIL_API_ENDPOINT, window.location.href);
+  const sameOrigin = endpointUrl.origin === window.location.origin;
 
   const res = await fetch(MAIL_API_ENDPOINT, {
     method: 'POST',
-    credentials: 'include',
+    credentials: sameOrigin ? 'include' : 'omit',
     headers,
     body: form,
   });
