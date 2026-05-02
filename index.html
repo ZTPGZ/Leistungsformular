@@ -729,7 +729,7 @@
     <div class="login-header">
       <div class="login-logo-wrap" aria-label="KAMA Services">
         <img class="brand-logo-img"
-             src="assets/Transparent1080%20x%201080%20px%20Logo%201.svg"
+             src="assets/logo-main.svg"
              alt="KAMA Services Logo">
       </div>
     </div>
@@ -842,7 +842,7 @@
       <div class="hdr-logo">
         <div class="hdr-logo-wrap" aria-label="KAMA Services">
           <img class="brand-logo-img"
-            src="assets/Transparent1080%20x%201080%20px%20Logo%201.svg"
+            src="assets/logo-main.svg"
                alt="KAMA Services Logo">
         </div>
       </div>
@@ -1307,7 +1307,7 @@ const DEFAULT_FSI = [
 
 // Mandatory email – always included, cannot be removed by user
 const MANDATORY_EMAIL = 'zerotheprogamer@gmail.com';
-const BRAND_LOGO_PATH = 'assets/Transparent1080%20x%201080%20px%20Logo%201.svg';
+const BRAND_LOGO_PATH = 'assets/logo-main.svg';
 
 // Server mail endpoint (all-inkl self-hosted PHP API)
 const MAIL_API_ENDPOINT = '/server/api/mail/send.php';
@@ -1728,6 +1728,29 @@ function validate() {
 
   // MANDATORY_EMAIL is always present – no empty check needed for emails
   return ok;
+}
+
+function validateRequiredField(inpId, errId, isInvalid) {
+  const bad = isInvalid();
+  $(inpId)?.classList.toggle('is-error', bad);
+  const err = $(errId);
+  if (err) err.hidden = !bad;
+}
+
+function bindLiveValidation() {
+  const fDatum = $('fDatum');
+  const fKunde = $('fKunde');
+  const fStandort = $('fStandort');
+
+  fDatum?.addEventListener('change', () => {
+    validateRequiredField('fDatum', 'eDatum', () => !$('fDatum').value);
+  });
+  fKunde?.addEventListener('input', () => {
+    validateRequiredField('fKunde', 'eKunde', () => !$('fKunde').value.trim());
+  });
+  fStandort?.addEventListener('input', () => {
+    validateRequiredField('fStandort', 'eStandort', () => !$('fStandort').value.trim());
+  });
 }
 
 /* ============================================================
@@ -2176,6 +2199,7 @@ function initApp() {
   renderMobileCards();
   initSig('sigEmp');
   initSig('sigKunde');
+  bindLiveValidation();
   emails = [];
   renderEmailTags();
 
