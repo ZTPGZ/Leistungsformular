@@ -1730,27 +1730,19 @@ function validate() {
   return ok;
 }
 
-function validateRequiredField(inpId, errId, isInvalid) {
-  const bad = isInvalid();
-  $(inpId)?.classList.toggle('is-error', bad);
-  const err = $(errId);
-  if (err) err.hidden = !bad;
+function clearFieldError(inpId, errId) {
+  $(inpId)?.classList.remove('is-error');
+  const e = $(errId);
+  if (e) e.hidden = true;
 }
 
 function bindLiveValidation() {
-  const fDatum = $('fDatum');
-  const fKunde = $('fKunde');
-  const fStandort = $('fStandort');
-
-  fDatum?.addEventListener('change', () => {
-    validateRequiredField('fDatum', 'eDatum', () => !$('fDatum').value);
-  });
-  fKunde?.addEventListener('input', () => {
-    validateRequiredField('fKunde', 'eKunde', () => !$('fKunde').value.trim());
-  });
-  fStandort?.addEventListener('input', () => {
-    validateRequiredField('fStandort', 'eStandort', () => !$('fStandort').value.trim());
-  });
+  $('fDatum')?.addEventListener('change',  () => clearFieldError('fDatum',    'eDatum'));
+  $('fDatum')?.addEventListener('input',   () => clearFieldError('fDatum',    'eDatum'));
+  $('fKunde')?.addEventListener('input',   () => clearFieldError('fKunde',    'eKunde'));
+  $('fKunde')?.addEventListener('change',  () => clearFieldError('fKunde',    'eKunde'));
+  $('fStandort')?.addEventListener('input',  () => clearFieldError('fStandort', 'eStandort'));
+  $('fStandort')?.addEventListener('change', () => clearFieldError('fStandort', 'eStandort'));
 }
 
 /* ============================================================
