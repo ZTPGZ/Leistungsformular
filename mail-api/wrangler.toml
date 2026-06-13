@@ -1,6 +1,7 @@
 name = "kama-mail-api"
 main = "worker.js"
 compatibility_date = "2026-05-02"
+workers_dev = true
 
 [vars]
 # Must match your frontend origin in production, e.g. "https://ztpgz.github.io"

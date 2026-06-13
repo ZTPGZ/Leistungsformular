@@ -2,6 +2,6 @@
 // Diese Werte können angepasst werden, ohne index.html zu ändern.
 window.KAMA_CONFIG = {
   mandatoryEmail: 'info@kama-services.eu',
-  mailApiEndpoint: 'https://kama-mail-api.kamaservices.workers.dev',
+  mailApiEndpoint: 'https://kama-mail-api.kama-services.workers.dev',
   mailApiToken: '',
 };
