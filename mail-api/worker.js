@@ -16,7 +16,13 @@ export default {
     try {
       const mailMode = String(env.MAIL_MODE || 'live').toLowerCase();
 
-      if (!env.FROM_EMAIL) {
+      // Test mode: send via Resend test domain (no domain verification required)
+      let fromEmail = env.FROM_EMAIL;
+      if (mailMode === 'test') {
+        fromEmail = 'onboarding@resend.dev';
+      }
+
+      if (!fromEmail) {
         return json({ ok: false, error: 'Server not configured (FROM_EMAIL missing)' }, 500, allowedOrigin);
       }
 
@@ -29,14 +35,15 @@ export default {
       }
 
       const form = await request.formData();
+      const requestType = (form.get('type') || 'document').toString().trim().toLowerCase();
       const toRaw = (form.get('to') || '').toString().trim();
       const subject = (form.get('subject') || '').toString().trim();
       const text = (form.get('text') || '').toString();
       const docNum = (form.get('docNum') || '').toString().trim();
       const pdf = form.get('pdf');
 
-      if (!toRaw || !subject || !text || !pdf || typeof pdf.arrayBuffer !== 'function') {
-        return json({ ok: false, error: 'Missing required fields: to, subject, text, pdf' }, 400, allowedOrigin);
+      if (!toRaw || !subject || !text) {
+        return json({ ok: false, error: 'Missing required fields: to, subject, text' }, 400, allowedOrigin);
       }
 
       const to = toRaw
@@ -48,8 +55,17 @@ export default {
         return json({ ok: false, error: 'No valid recipients provided' }, 400, allowedOrigin);
       }
 
-      const pdfBuffer = await pdf.arrayBuffer();
-      const filename = `${docNum || 'Leistungsnachweis'}.pdf`;
+      const needsAttachment = requestType !== 'contact';
+      let pdfBuffer = null;
+      let filename = null;
+
+      if (needsAttachment) {
+        if (!pdf || typeof pdf.arrayBuffer !== 'function') {
+          return json({ ok: false, error: 'Missing required field: pdf' }, 400, allowedOrigin);
+        }
+        pdfBuffer = await pdf.arrayBuffer();
+        filename = `${docNum || 'Leistungsnachweis'}.pdf`;
+      }
 
       // Dry-run mode for end-to-end Worker/Wrangler testing without provider send.
       if (mailMode === 'dry-run') {
@@ -58,27 +74,29 @@ export default {
           provider: 'worker-dry-run',
           dryRun: true,
           accepted: {
+            type: requestType,
             to,
             subject,
             docNum,
             filename,
-            pdfBytes: pdfBuffer.byteLength,
+            pdfBytes: pdfBuffer ? pdfBuffer.byteLength : 0,
           },
         }, 200, allowedOrigin);
       }
 
-      const pdfBase64 = arrayBufferToBase64(pdfBuffer);
+      const pdfBase64 = pdfBuffer ? arrayBufferToBase64(pdfBuffer) : null;
 
       const attempts = [];
 
       // Primary: Resend (free tier friendly for low volume)
       if (env.RESEND_API_KEY) {
         const resendResult = await sendViaResend(env, {
+          from: fromEmail,
           to,
           subject,
           text,
-          filename,
-          pdfBase64,
+          filename: filename || undefined,
+          pdfBase64: pdfBase64 || undefined,
         });
         attempts.push(resendResult.meta);
         if (resendResult.ok) {
@@ -104,16 +122,20 @@ async function sendViaResend(env, mail) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: env.FROM_EMAIL,
+        from: mail.from,
         to: mail.to,
         subject: mail.subject,
         text: mail.text,
-        attachments: [
-          {
-            filename: mail.filename,
-            content: mail.pdfBase64,
-          },
-        ],
+        ...(mail.filename && mail.pdfBase64
+          ? {
+              attachments: [
+                {
+                  filename: mail.filename,
+                  content: mail.pdfBase64,
+                },
+              ],
+            }
+          : {}),
       }),
     });
 

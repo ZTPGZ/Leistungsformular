@@ -10,6 +10,7 @@
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Hashed account credentials (SHA-256) – load before main script -->
   <script src="accounts.js" onerror="console.warn('accounts.js not found – using fallback users.')"></script>
+  <script src="config.js" onerror="console.warn('config.js not found – using inline fallback.')"></script>
 
   <style>
   /* ============================================================
@@ -1306,14 +1307,16 @@ const DEFAULT_FSI = [
 ];
 
 // Mandatory email – always included, cannot be removed by user
-const MANDATORY_EMAIL = 'info@kama-services.eu';
+// Wird aus config.js gelesen, mit Fallback falls config.js fehlt.
+const CFG = window.KAMA_CONFIG || {};
+const MANDATORY_EMAIL = CFG.mandatoryEmail || 'info@kama-services.eu';
 const BRAND_LOGO_PATH = 'assets/logo-main.svg';
 
 // Server mail endpoint (Cloudflare Worker or self-hosted PHP API)
 // Example worker: https://kama-mail-api.<subdomain>.workers.dev
-const MAIL_API_ENDPOINT = 'https://kama-mail-api.kamaservices.workers.dev';
+const MAIL_API_ENDPOINT = CFG.mailApiEndpoint || 'https://kama-mail-api.kamaservices.workers.dev';
 // Optional shared token for worker auth (x-mail-api-token header)
-const MAIL_API_TOKEN = '';
+const MAIL_API_TOKEN = CFG.mailApiToken || '';
 
 // Optional auth backend for self-hosted PHP API (all-inkl compatible).
 // Example same origin: /server/api
@@ -1935,6 +1938,22 @@ function buildEmailSummary(data) {
   return summary;
 }
 
+function buildForgotAccessMessage(name, contact, note) {
+  return [
+    'Hallo KAMA-Buero,',
+    '',
+    'ich benoetige neue Zugangsdaten fuer den Leistungsnachweis.',
+    '',
+    `Name: ${name}`,
+    contact ? `Erreichbar unter: ${contact}` : null,
+    note ? `Anmerkung: ${note}` : null,
+    '',
+    'Bitte sendet mir neue Login-Daten zu.',
+    '',
+    'Vielen Dank!'
+  ].filter(Boolean).join('\n');
+}
+
 async function sendEmailsApi(to, subject, text, docNum, pdfBlob, filename) {
   const form = new FormData();
   form.append('to', to.join(','));
@@ -1959,6 +1978,37 @@ async function sendEmailsApi(to, subject, text, docNum, pdfBlob, filename) {
     const details = await res.text().catch(() => 'Mail API request failed');
     throw new Error(details || 'Mail API request failed');
   }
+}
+
+async function sendForgotAccessRequestApi(name, contact, note) {
+  const form = new FormData();
+  form.append('type', 'contact');
+  form.append('to', MANDATORY_EMAIL);
+  form.append('subject', `Zugangsdaten-Anfrage: ${name}`);
+  form.append('text', buildForgotAccessMessage(name, contact, note));
+
+  const headers = {};
+  if (MAIL_API_TOKEN.trim()) headers['x-mail-api-token'] = MAIL_API_TOKEN.trim();
+  const endpointUrl = new URL(MAIL_API_ENDPOINT, window.location.href);
+  const sameOrigin = endpointUrl.origin === window.location.origin;
+
+  const res = await fetch(MAIL_API_ENDPOINT, {
+    method: 'POST',
+    credentials: sameOrigin ? 'include' : 'omit',
+    headers,
+    body: form,
+  });
+
+  if (!res.ok) {
+    const details = await res.text().catch(() => 'Contact API request failed');
+    throw new Error(details || 'Contact API request failed');
+  }
+}
+
+function openForgotMailtoFallback(name, contact, note) {
+  const subject = encodeURIComponent('Zugangsdaten-Anfrage: ' + name);
+  const body = encodeURIComponent(buildForgotAccessMessage(name, contact, note));
+  window.open('mailto:' + MANDATORY_EMAIL + '?subject=' + subject + '&body=' + body);
 }
 
 function openMailModal(data, pdfBlob, filename) {
@@ -1996,10 +2046,6 @@ async function sendFromMailModal() {
     toast('Keine Versanddaten vorhanden.', 'err');
     return;
   }
-  if (!MAIL_API_ENDPOINT.trim()) {
-    toast('Direkter Versand ist noch nicht konfiguriert (MAIL_API_ENDPOINT fehlt).', 'err', 7000);
-    return;
-  }
 
   const to = $('mailTo').value
     .split(',')
@@ -2021,39 +2067,68 @@ async function sendFromMailModal() {
     return;
   }
 
+  const sendBtn = $('mailModalSend');
+  const originalText = sendBtn.textContent;
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Wird gesendet\u2026';
   setLoader(true);
+  let apiStatus = 'skipped';
+  let apiError = null;
+
+  if (MAIL_API_ENDPOINT.trim()) {
+    try {
+      await sendEmailsApi(
+        to,
+        subject,
+        text,
+        pendingMailData.docNum,
+        pendingPdfBlob,
+        pendingPdfFilename
+      );
+      apiStatus = 'ok';
+    } catch (err) {
+      apiStatus = 'failed';
+      apiError = err;
+      console.error(err);
+    }
+  }
+
   try {
-    await sendEmailsApi(
-      to,
-      subject,
-      text,
-      pendingMailData.docNum,
-      pendingPdfBlob,
-      pendingPdfFilename
-    );
+    const dlUrl = URL.createObjectURL(pendingPdfBlob);
+    const a = document.createElement('a');
+    a.href = dlUrl;
+    a.download = pendingPdfFilename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
+
+    const mailtoUrl = `mailto:${to.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+    window.open(mailtoUrl);
+
     closeMailModal();
-    toast(`${pendingMailData.docNum} wurde erfolgreich versendet.`, 'ok', 7000);
+    if (apiStatus === 'ok') {
+      toast('E-Mail wurde erfolgreich versendet. PDF wurde zusätzlich heruntergeladen.', 'ok', 9000);
+    } else if (apiStatus === 'failed') {
+      toast('API nicht erreichbar – PDF wurde heruntergeladen. Bitte PDF als Anhang an die geöffnete E-Mail anhängen und manuell senden.', 'warn', 12000);
+    } else {
+      toast('PDF wurde heruntergeladen und Mailprogramm geöffnet. Bitte PDF als Anhang einfügen und senden.', 'info', 10000);
+    }
     setTimeout(() => {
-      if (confirm('Leistungsnachweis versendet.\nFormular für neuen Eintrag zurücksetzen?')) {
+      if (confirm('Entwurf wurde im Mailprogramm geoeffnet.\nFormular fuer neuen Eintrag zuruecksetzen?')) {
         resetForm();
       }
     }, 300);
   } catch (err) {
     console.error(err);
-    // Fallback: PDF herunterladen + E-Mail-Client öffnen
-    try {
-      const dlUrl = URL.createObjectURL(pendingPdfBlob);
-      const a = document.createElement('a');
-      a.href = dlUrl; a.download = pendingPdfFilename; a.click();
-      setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
-      const mailtoUrl = `mailto:${to.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-      window.open(mailtoUrl);
+    if (apiStatus === 'ok') {
+      toast('E-Mail wurde über die API versendet. PDF liegt bereit.', 'ok', 9000);
       closeMailModal();
-      toast('API nicht erreichbar – PDF heruntergeladen. Bitte als Anhang zur geöffneten E-Mail hinzufügen.', 'warn', 10000);
-    } catch (e2) {
-      toast('Versand fehlgeschlagen. PDF wurde gespeichert – bitte manuell versenden.', 'err', 7000);
+      return;
     }
+    if (apiError) console.error(apiError);
+    toast('Mailprogramm konnte nicht geöffnet werden. PDF wurde heruntergeladen – bitte manuell versenden.', 'err', 8000);
   } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent = originalText;
     setLoader(false);
   }
 }
@@ -2359,23 +2434,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('mailModalSend').addEventListener('click', sendFromMailModal);
   $('mailModal').addEventListener('click', e => { if (e.target === $('mailModal')) closeMailModal(); });
 
-  $('forgotModalSend').addEventListener('click', () => {
+  $('forgotModalSend').addEventListener('click', async () => {
     const name    = $('forgotName').value.trim();
     if (!name) { $('forgotName').focus(); $('forgotName').style.borderColor = 'var(--error)'; return; }
     $('forgotName').style.borderColor = '';
     const contact = $('forgotContact').value.trim();
     const note    = $('forgotNote').value.trim();
-    const subject = encodeURIComponent('Zugangsdaten-Anfrage: ' + name);
-    const body    = encodeURIComponent(
-      'Hallo KAMA-Büro,\n\n' +
-      'ich benötige neue Zugangsdaten für den Leistungsnachweis.\n\n' +
-      'Name: ' + name + '\n' +
-      (contact ? 'Erreichbar unter: ' + contact + '\n' : '') +
-      (note    ? 'Anmerkung: '        + note    + '\n' : '') +
-      '\nBitte sendet mir neue Login-Daten zu.\n\nVielen Dank!'
-    );
-    window.open('mailto:' + MANDATORY_EMAIL + '?subject=' + subject + '&body=' + body);
-    closeForgotModal();
+
+    if (!MAIL_API_ENDPOINT.trim()) {
+      openForgotMailtoFallback(name, contact, note);
+      closeForgotModal();
+      return;
+    }
+
+    setLoader(true);
+    try {
+      await sendForgotAccessRequestApi(name, contact, note);
+      closeForgotModal();
+      toast('Anfrage wurde erfolgreich gesendet.', 'ok', 6000);
+    } catch (err) {
+      console.error(err);
+      openForgotMailtoFallback(name, contact, note);
+      closeForgotModal();
+      toast('API nicht erreichbar - Mailprogramm wurde als Fallback geoeffnet.', 'warn', 9000);
+    } finally {
+      setLoader(false);
+    }
   });
 
   // ── EMAIL INPUT ──
