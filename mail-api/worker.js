@@ -16,17 +16,11 @@ export default {
     try {
       const mailMode = String(env.MAIL_MODE || 'live').toLowerCase();
 
-      // Test mode: send via Resend test domain (no domain verification required)
-      let fromEmail = env.FROM_EMAIL;
-      if (mailMode === 'test') {
-        fromEmail = 'onboarding@resend.dev';
+      const fromParsed = parseFromAddress(env.FROM_EMAIL);
+      if (!fromParsed) {
+        return json({ ok: false, error: 'Server not configured (FROM_EMAIL missing or invalid)' }, 500, allowedOrigin);
       }
 
-      if (!fromEmail) {
-        return json({ ok: false, error: 'Server not configured (FROM_EMAIL missing)' }, 500, allowedOrigin);
-      }
-
-      // Optional lightweight auth to prevent abuse of public worker endpoint.
       if (env.MAIL_API_TOKEN) {
         const headerToken = request.headers.get('x-mail-api-token') || '';
         if (!headerToken || headerToken !== env.MAIL_API_TOKEN) {
@@ -67,7 +61,6 @@ export default {
         filename = `${docNum || 'Leistungsnachweis'}.pdf`;
       }
 
-      // Dry-run mode for end-to-end Worker/Wrangler testing without provider send.
       if (mailMode === 'dry-run') {
         return json({
           ok: true,
@@ -85,88 +78,48 @@ export default {
       }
 
       const pdfBase64 = pdfBuffer ? arrayBufferToBase64(pdfBuffer) : null;
-
       const attempts = [];
 
-      // Primary: Resend (free tier friendly for low volume)
-      if (env.RESEND_API_KEY) {
-        const resendResult = await sendViaResend(env, {
-          from: fromEmail,
-          to,
-          subject,
-          text,
-          filename: filename || undefined,
-          pdfBase64: pdfBase64 || undefined,
-        });
-        attempts.push(resendResult.meta);
-        if (resendResult.ok) {
-          return json({ ok: true, provider: 'resend', id: resendResult.id || null, attempts }, 200, allowedOrigin);
+      if (env.SEND_EMAIL) {
+        try {
+          const msg = {
+            from: { name: fromParsed.name, email: fromParsed.email },
+            to: to.map(addr => ({ email: addr })),
+            subject,
+            content: [{ type: 'text/plain', value: text }],
+          };
+
+          if (pdfBase64 && filename) {
+            msg.attachments = [{
+              filename,
+              content: pdfBase64,
+              content_type: 'application/pdf',
+            }];
+          }
+
+          await env.SEND_EMAIL.send(msg);
+          attempts.push({ provider: 'cloudflare-email', ok: true });
+          return json({ ok: true, provider: 'cloudflare-email', attempts }, 200, allowedOrigin);
+        } catch (err) {
+          attempts.push({ provider: 'cloudflare-email', ok: false, details: String(err?.message || err) });
         }
       } else {
-        attempts.push({ provider: 'resend', skipped: true, reason: 'RESEND_API_KEY missing' });
+        attempts.push({ provider: 'cloudflare-email', skipped: true, reason: 'SEND_EMAIL binding not configured' });
       }
 
-      return json({ ok: false, error: 'Resend failed', attempts }, 502, allowedOrigin);
+      return json({ ok: false, error: 'Email send failed', attempts }, 502, allowedOrigin);
     } catch (err) {
       return json({ ok: false, error: 'Unexpected server error', details: String(err?.message || err) }, 500, allowedOrigin);
     }
   },
 };
 
-async function sendViaResend(env, mail) {
-  try {
-    const resp = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: mail.from,
-        to: mail.to,
-        subject: mail.subject,
-        text: mail.text,
-        ...(mail.filename && mail.pdfBase64
-          ? {
-              attachments: [
-                {
-                  filename: mail.filename,
-                  content: mail.pdfBase64,
-                },
-              ],
-            }
-          : {}),
-      }),
-    });
-
-    if (!resp.ok) {
-      const details = await safeText(resp);
-      return {
-        ok: false,
-        meta: { provider: 'resend', ok: false, status: resp.status, details },
-      };
-    }
-
-    const body = await resp.json().catch(() => ({}));
-    return {
-      ok: true,
-      id: body?.id || null,
-      meta: { provider: 'resend', ok: true, status: resp.status },
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      meta: { provider: 'resend', ok: false, status: 0, details: String(err?.message || err) },
-    };
-  }
-}
-
-async function safeText(resp) {
-  try {
-    return await resp.text();
-  } catch {
-    return 'Request failed';
-  }
+function parseFromAddress(raw) {
+  if (!raw) return null;
+  const match = raw.match(/^(.+?)\s*<(.+?)>$/);
+  if (match) return { name: match[1].trim(), email: match[2].trim() };
+  if (raw.includes('@')) return { name: '', email: raw.trim() };
+  return null;
 }
 
 function corsHeaders(origin) {
