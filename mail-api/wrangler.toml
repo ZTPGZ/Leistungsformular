@@ -3,16 +3,12 @@ main = "worker.js"
 compatibility_date = "2026-05-02"
 workers_dev = true
 
-# Cloudflare Email Routing binding – kein externer Mail-Dienst nötig
-[[send_email]]
-name = "SEND_EMAIL"
-
 [vars]
 # Must match your frontend origin in production, e.g. "https://ztpgz.github.io"
 ALLOWED_ORIGIN = "https://ztpgz.github.io"
-# "dry-run" = akzeptiert Requests ohne Versand, "live" = echter Versand via Cloudflare send_email
-MAIL_MODE = "live"
-# Absender: Name und E-Mail einer auf der Domain konfigurierten Adresse
+# "dry-run" = accept request but do not send, "test" = send via Resend test domain (onboarding@resend.dev), "live" = real provider send
+MAIL_MODE = "test"
+# Verified sender in Resend, e.g. "KAMA Services <noreply@kama-services.eu>"
 FROM_EMAIL = "KAMA Services <info@kama-services.eu>"
-# Optional: shared token geprüft via Header x-mail-api-token
+# Optional: simple shared token checked from request header `x-mail-api-token`
 MAIL_API_TOKEN = ""
