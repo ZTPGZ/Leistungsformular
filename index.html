@@ -2197,13 +2197,16 @@ async function sendFromMailModal() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
 
-    const mailtoUrl = `mailto:${to.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-    window.open(mailtoUrl);
-
     closeMailModal();
     if (apiStatus === 'ok') {
       toast('E-Mail wurde erfolgreich versendet. PDF wurde zusätzlich heruntergeladen.', 'ok', 9000);
-    } else if (apiStatus === 'failed') {
+      setTimeout(() => { if (confirm('Formular für neuen Eintrag zurücksetzen?')) resetForm(); }, 300);
+      return;
+    }
+
+    const mailtoUrl = `mailto:${to.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+    window.open(mailtoUrl);
+    if (apiStatus === 'failed') {
       toast('API nicht erreichbar – PDF wurde heruntergeladen. Bitte PDF als Anhang an die geöffnete E-Mail anhängen und manuell senden.', 'warn', 12000);
     } else {
       toast('PDF wurde heruntergeladen und Mailprogramm geöffnet. Bitte PDF als Anhang einfügen und senden.', 'info', 10000);
