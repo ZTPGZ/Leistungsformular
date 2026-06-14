@@ -561,6 +561,23 @@
   .fsi-edit-row { display: flex; align-items: center; gap: .75rem; }
   .fsi-edit-code { font-weight: 800; font-size: .875rem; min-width: 58px; color: var(--dark); }
   .fsi-edit-inp { flex: 1; min-height: 40px !important; padding: .375rem .625rem !important; font-size: .875rem !important; }
+  .modal-sm { max-width: 440px !important; }
+
+  /* ============================================================
+     SIGNATURE REVIEW MODAL
+     ============================================================ */
+  .sig-review { display: flex; flex-direction: column; gap: 1rem; }
+  .sig-review-canvas-wrap {
+    border: 1.5px solid var(--border); border-radius: var(--r-sm);
+    overflow: hidden; background: var(--white);
+  }
+  .sig-review-canvas-wrap canvas { display: block; width: 100%; height: 80px; }
+  .sig-consent-label {
+    display: flex; gap: .625rem; align-items: flex-start;
+    font-size: .8125rem; line-height: 1.45; cursor: pointer;
+  }
+  .sig-consent-label input[type="checkbox"] { margin-top: .15rem; flex-shrink: 0; }
+  .sig-review-meta { font-size: .75rem; color: var(--muted); text-align: right; }
 
   /* ============================================================
      TOAST
@@ -833,6 +850,42 @@
 </div>
 
 <!-- ====================================================
+     MODAL: SIGNATUR BESTÄTIGEN (QUALIFIZIERTE SIGNATUR)
+     ==================================================== -->
+<div class="modal-bd" id="sigModal" role="dialog" aria-modal="true" aria-labelledby="sigModalTitle">
+  <div class="modal modal-sm">
+    <div class="modal-hdr">
+      <h3 id="sigModalTitle">Signatur bestätigen</h3>
+      <button class="modal-close" id="sigModalClose" aria-label="Schließen">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="sig-review">
+        <div class="sig-review-canvas-wrap">
+          <canvas id="sigReviewCanvas" width="500" height="120"></canvas>
+        </div>
+        <div class="form-group">
+          <label for="sigFullName">Vollständiger Name</label>
+          <input type="text" id="sigFullName" placeholder="Max Mustermann" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label class="sig-consent-label">
+            <input type="checkbox" id="sigConsent">
+            <span>Ich bestätige, dass die obige Unterschrift von mir stammt und ich mit dem Inhalt des Leistungsnachweises einverstanden bin. (Qualifizierte elektronische Signatur gemäß eIDAS)</span>
+          </label>
+        </div>
+        <div class="sig-review-meta">
+          <span id="sigReviewDate"></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="btn btn-outline btn-sm" id="sigModalCancel">Abbrechen</button>
+      <button class="btn btn-dark btn-sm" id="sigModalConfirm" disabled>Signatur bestätigen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
      SCREEN: APP
      ==================================================== -->
 <section class="screen" id="screen-app">
@@ -993,6 +1046,8 @@
             <div class="sig-footer">
               <button type="button" class="btn btn-sm btn-outline"
                       onclick="clearSig('sigEmp')">Feld löschen</button>
+              <button type="button" class="btn btn-sm btn-dark" id="sigEmpConfirm"
+                      onclick="openSigConfirm('sigEmp')" hidden>Signatur bestätigen</button>
             </div>
           </div>
         </div>
@@ -1014,6 +1069,8 @@
               <div class="sig-footer">
                 <button type="button" class="btn btn-sm btn-outline"
                         onclick="clearSig('sigKunde')">Feld löschen</button>
+                <button type="button" class="btn btn-sm btn-dark" id="sigKundeConfirm"
+                        onclick="openSigConfirm('sigKunde')" hidden>Signatur bestätigen</button>
               </div>
             </div>
           </div>
@@ -1327,6 +1384,7 @@ let pdfLogoDataUrl = null;
 let pendingMailData = null;
 let pendingPdfBlob = null;
 let pendingPdfFilename = '';
+let sigConfirm = null;   // { canvasId, resolve } – für Signatur-Bestätigungs-Modal
 
 /* ============================================================
    STATE
@@ -1709,6 +1767,17 @@ function collect() {
     emails:   allEmails,
     sigEmp:   getSignatureDataUrl('sigEmp'),
     sigKunde: kundeNVO ? null : getSignatureDataUrl('sigKunde'),
+    sigEmpMeta:   readSigMeta('sigEmp'),
+    sigKundeMeta: kundeNVO ? null : readSigMeta('sigKunde'),
+  };
+}
+
+function readSigMeta(canvasId) {
+  const c = $(canvasId);
+  if (!c || !canvasHasInk(c)) return null;
+  return {
+    signer: c.dataset.signer || null,
+    signedAt: c.dataset.signedAt || null,
   };
 }
 
@@ -1736,6 +1805,17 @@ function validate() {
   }
 
   // MANDATORY_EMAIL is always present – no empty check needed for emails
+
+  const sigEmpMeta = readSigMeta('sigEmp');
+  if (!sigEmpMeta?.signedAt && canvasHasInk($('sigEmp'))) {
+    toast('Bitte die Unterschrift des Mitarbeiters bestätigen (Signatur bestätigen-Button).', 'err');
+    ok = false;
+  }
+  if (!data.kundeNVO && canvasHasInk($('sigKunde')) && !readSigMeta('sigKunde')?.signedAt) {
+    toast('Bitte die Unterschrift des Kunden bestätigen (Signatur bestätigen-Button).', 'err');
+    ok = false;
+  }
+
   return ok;
 }
 
@@ -1875,6 +1955,14 @@ async function buildPDF(data) {
   if (data.sigEmp) {
     try { doc.addImage(data.sigEmp, 'PNG', M + 1, y + 7, 66, 14, undefined, 'FAST'); } catch {}
   }
+  if (data.sigEmpMeta?.signedAt) {
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(6.5);
+    doc.setTextColor(100, 100, 100);
+    const d = new Date(data.sigEmpMeta.signedAt);
+    doc.text('Signiert: ' + d.toLocaleString('de-DE'), M, y + 27);
+    if (data.sigEmpMeta.signer) doc.text('Name: ' + data.sigEmpMeta.signer, M, y + 31);
+    doc.setTextColor(30, 30, 38);
+  }
 
   if (!data.kundeNVO) {
     const cx = W / 2 + 4;
@@ -1883,6 +1971,14 @@ async function buildPDF(data) {
     doc.rect(cx, y + 6, 68, 16);
     if (data.sigKunde) {
       try { doc.addImage(data.sigKunde, 'PNG', cx + 1, y + 7, 66, 14, undefined, 'FAST'); } catch {}
+    }
+    if (data.sigKundeMeta?.signedAt) {
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(6.5);
+      doc.setTextColor(100, 100, 100);
+      const d = new Date(data.sigKundeMeta.signedAt);
+      doc.text('Signiert: ' + d.toLocaleString('de-DE'), cx, y + 27);
+      if (data.sigKundeMeta.signer) doc.text('Name: ' + data.sigKundeMeta.signer, cx, y + 31);
+      doc.setTextColor(30, 30, 38);
     }
   } else {
     doc.setFont('helvetica', 'italic'); doc.setFontSize(8);
@@ -2207,7 +2303,10 @@ function initSig(id) {
     ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(x, y); ctx.stroke();
     [lx, ly] = [x, y];
   }
-  function end() { drawing = false; }
+  function end() { 
+    drawing = false; 
+    onSigDraw(id); 
+  }
 
   canvas.addEventListener('mousedown', start);
   canvas.addEventListener('mousemove', move);
@@ -2221,6 +2320,61 @@ function initSig(id) {
 function clearSig(id) {
   const c = $(id);
   if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height);
+  const confirmBtn = $(id + 'Confirm');
+  if (confirmBtn) {
+    confirmBtn.hidden = true;
+    confirmBtn.textContent = 'Signatur bestätigen';
+    confirmBtn.disabled = false;
+    confirmBtn.style.pointerEvents = '';
+  }
+  delete c?.dataset?.signer;
+  delete c?.dataset?.signedAt;
+}
+
+function onSigDraw(canvasId) {
+  const confirmBtn = $(canvasId + 'Confirm');
+  if (confirmBtn) confirmBtn.hidden = !canvasHasInk($(canvasId));
+}
+
+// Signature confirmation modal
+function openSigConfirm(canvasId) {
+  const src = $(canvasId);
+  if (!src || !canvasHasInk(src)) return;
+  const review = $('sigReviewCanvas');
+  review.getContext('2d').clearRect(0, 0, review.width, review.height);
+  review.getContext('2d').drawImage(src, 0, 0);
+  sigConfirm = { canvasId };
+  $('sigFullName').value = canvasId === 'sigEmp'
+    ? ($('sigEmpName').textContent || '')
+    : ($('fKunde').value.trim() || '');
+  $('sigConsent').checked = false;
+  $('sigModalConfirm').disabled = true;
+  $('sigReviewDate').textContent = 'Datum: ' + new Date().toLocaleString('de-DE');
+  $('sigModal').classList.add('open');
+  $('sigFullName').focus();
+}
+
+function closeSigModal() {
+  $('sigModal').classList.remove('open');
+  sigConfirm = null;
+}
+
+function confirmSignature() {
+  if (!sigConfirm) return;
+  const name = $('sigFullName').value.trim();
+  if (!name || !$('sigConsent').checked) return;
+  const canvasId = sigConfirm.canvasId;
+  const confirmBtn = $(canvasId + 'Confirm');
+  if (confirmBtn) {
+    confirmBtn.textContent = '✓ Bestätigt';
+    confirmBtn.disabled = true;
+    confirmBtn.style.pointerEvents = 'none';
+  }
+  const src = $(canvasId);
+  src.dataset.signer = name;
+  src.dataset.signedAt = new Date().toISOString();
+  closeSigModal();
+  toast('Signatur von ' + name + ' wurde bestätigt.', 'ok', 4000);
 }
 
 /* ============================================================
@@ -2417,6 +2571,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       closeModal('impressumModal');
       closeModal('forgotModal');
       closeMailModal();
+      closeSigModal();
     }
   });
 
@@ -2433,6 +2588,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('mailModalCancel').addEventListener('click', closeMailModal);
   $('mailModalSend').addEventListener('click', sendFromMailModal);
   $('mailModal').addEventListener('click', e => { if (e.target === $('mailModal')) closeMailModal(); });
+
+  // ── SIGNATUR BESTÄTIGEN MODAL ──
+  $('sigModalClose').addEventListener('click', closeSigModal);
+  $('sigModalCancel').addEventListener('click', closeSigModal);
+  $('sigModal').addEventListener('click', e => { if (e.target === $('sigModal')) closeSigModal(); });
+  $('sigFullName').addEventListener('input', () => {
+    $('sigModalConfirm').disabled = !($('sigFullName').value.trim() && $('sigConsent').checked);
+  });
+  $('sigConsent').addEventListener('change', () => {
+    $('sigModalConfirm').disabled = !($('sigFullName').value.trim() && $('sigConsent').checked);
+  });
+  $('sigFullName').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !$('sigModalConfirm').disabled) confirmSignature();
+  });
+  $('sigModalConfirm').addEventListener('click', confirmSignature);
 
   $('forgotModalSend').addEventListener('click', async () => {
     const name    = $('forgotName').value.trim();
