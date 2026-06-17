@@ -1,9 +1,23 @@
 # IONOS Deployment Guide – KAMA Leistungsnachweis
 
+## Übersicht
+
+**Diese Anleitung zeigt das komplette IONOS-native Deployment OHNE Cloudflare Worker oder Resend.**
+
+Das IONOS Webhosting-Paket enthält **alles was du brauchst:**
+- ✅ PHP `mail()` Funktion (für E-Mail-Versand)
+- ✅ E-Mail-Postfächer (`info@kama-services.eu`)
+- ✅ E-Mail-Weiterleitungen einrichtbar
+- ✅ SSL-Zertifikate (Let's Encrypt kostenlos)
+- ✅ Keine Drittanbieter-APIs nötig
+
+---
+
 ## Voraussetzungen
 - IONOS Webhosting-Paket mit PHP-Support
 - FTP/SFTP-Zugangsdaten oder Dateimanager im IONOS Control Panel
 - Domain oder Subdomain (z.B. `app.kama-services.eu`)
+- E-Mail-Adresse der Domain (z.B. `noreply@kama-services.eu`)
 
 ---
 
@@ -28,19 +42,39 @@
 
 ---
 
-## 2. Server-Backend konfigurieren
+## 2. E-Mail-Adresse anlegen (WICHTIG)
+
+### Im IONOS Control Panel:
+1. **"E-Mail & Office"** → Domain `kama-services.eu` auswählen
+2. **E-Mail-Adresse erstellen:**
+   - Adresse: `noreply@kama-services.eu` (für Absender)
+   - Typ: **Postfach** oder **Weiterleitung**
+   - Falls Weiterleitung: Ziel = `info@kama-services.eu`
+
+3. **Optional: Weiterleitung für Empfänger:**
+   - Adresse: `info@kama-services.eu`
+   - Weiterleitung → `zerotheprogamer@gmail.com`
+   - Dann kommen alle Leistungsnachweise direkt bei dir an
+
+**Wichtig:** `mail_from` in `server/config.php` muss existierende E-Mail-Adresse sein, sonst blockiert IONOS den Versand.
+
+---
+
+## 3. Server-Backend konfigurieren
 
 ### `server/config.php` anpassen:
 ```php
+<?php
 return [
-    // E-Mail-Absender (muss existierende Domain-Adresse sein)
+    // E-Mail-Absender (MUSS existierende E-Mail-Adresse der Domain sein!)
     'mail_from' => 'noreply@kama-services.eu',
     'mail_reply_to' => 'info@kama-services.eu',
 
-    // CORS: GitHub Pages + eigene Domain erlauben
-    'allowed_origins' => 'https://ztpgz.github.io,https://app.kama-services.eu',
+    // CORS: Nur eigene Domain erlauben (für Sicherheit)
+    // Wenn auch GitHub Pages erlaubt sein soll: 'https://ztpgz.github.io,https://app.kama-services.eu'
+    'allowed_origins' => 'https://app.kama-services.eu',
 
-    // Datenbank (nur wenn User-Management genutzt wird)
+    // Datenbank (nur wenn User-Management genutzt wird – kann ignoriert werden)
     'db_host' => 'localhost',
     'db_name' => 'kama_app',
     'db_user' => 'kama_user',
@@ -48,26 +82,30 @@ return [
 ];
 ```
 
-**Wichtig:** `mail_from` muss eine E-Mail-Adresse der gehosteten Domain sein, sonst blockiert der Mailserver.
+**Wichtig:** 
+- `mail_from` muss in Schritt 2 angelegt worden sein
+- PHP `mail()` nutzt IONOS-internen SMTP-Server (keine API-Keys nötig)
 
 ---
 
-## 3. Frontend-Konfiguration
+## 4. Frontend-Konfiguration
 
 ### `config.js` anpassen:
 ```js
 window.KAMA_CONFIG = {
   mandatoryEmail: 'info@kama-services.eu',
   mailApiEndpoint: 'https://app.kama-services.eu/server/api/mail/send.php',
-  mailApiToken: '', // leer lassen, wird vom PHP-Backend nicht benötigt
+  mailApiToken: '', // leer lassen, wird nicht benötigt
 };
 ```
 
-**Wichtig:** `mailApiEndpoint` muss auf das hochgeladene PHP-Skript zeigen.
+**Wichtig:** 
+- `mailApiEndpoint` zeigt auf das **lokale PHP-Skript** (nicht auf Cloudflare Worker!)
+- Kein API-Token nötig (läuft auf gleichem Server)
 
 ---
 
-## 4. Domain/Subdomain einrichten
+## 5. Domain/Subdomain einrichten
 
 ### Im IONOS Control Panel:
 1. **Subdomain anlegen** (falls noch nicht vorhanden):
@@ -90,7 +128,7 @@ window.KAMA_CONFIG = {
 
 ---
 
-## 5. Testen
+## 6. Testen
 
 ### Checkliste:
 - [ ] `https://app.kama-services.eu` öffnet die Login-Seite
@@ -104,13 +142,16 @@ window.KAMA_CONFIG = {
 ### Fehlersuche:
 - **Weißer Bildschirm:** Browser-Konsole öffnen (F12), Fehler prüfen
 - **Mail-Versand fehlschlägt:** 
+  - Prüfen ob `noreply@kama-services.eu` in IONOS Control Panel angelegt ist
   - Prüfen ob `mail_from` in `server/config.php` korrekt ist
-  - IONOS-Support kontaktieren, ob `mail()` freigeschaltet ist
-- **CORS-Fehler:** `allowed_origins` in `server/config.php` muss die Frontend-URL enthalten
+  - PHP-Fehlerlog prüfen (via FTP oder Dateimanager, meist `/logs/error.log`)
+  - IONOS-Support kontaktieren: "Ist `mail()` Funktion aktiviert?"
+- **CORS-Fehler:** `allowed_origins` in `server/config.php` muss `https://app.kama-services.eu` enthalten
+- **PDF wird nicht versendet:** Browser-Konsole prüfen auf Upload-Fehler (Datei zu groß? Upload-Limit in PHP erhöhen)
 
 ---
 
-## 6. Wartung
+## 7. Wartung
 
 ### Kundenliste erweitern:
 `customers.js` bearbeiten:
@@ -133,10 +174,49 @@ Hash erzeugen: https://emn178.github.io/online-tools/sha256.html
 
 ---
 
+## E-Mail-Architektur (IONOS-native)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Frontend (index.html @ app.kama-services.eu)              │
+└────────────────────┬────────────────────────────────────────┘
+                     │ POST FormData (PDF + Meta)
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│  PHP Backend (server/api/mail/send.php)                    │
+│  - Validierung (Empfänger, PDF-Attachment)                 │
+│  - MIME Multipart (Text + PDF Base64)                      │
+│  - mail($to, $subject, $body, $headers)                    │
+└────────────────────┬────────────────────────────────────────┘
+                     │ SMTP
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│  IONOS Mail-Server (intern)                                │
+│  Absender: noreply@kama-services.eu                        │
+└────────────────────┬────────────────────────────────────────┘
+                     │ SMTP/Internet
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│  Empfänger: info@kama-services.eu                          │
+│  ↓ (Weiterleitung optional)                                │
+│  zerotheprogamer@gmail.com                                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Vorteile:**
+- ✅ Kein Cloudflare Worker nötig
+- ✅ Kein Resend/Brevo/Drittanbieter
+- ✅ Keine API-Keys zu verwalten
+- ✅ Keine Domain-Verifikation (DNS-Einträge)
+- ✅ 100% im IONOS-Paket enthalten
+- ✅ Lokale Kommunikation (kein CORS-Problem)
+
+---
+
 ## Offene Punkte
-- [ ] Domain-Verifikation bei Resend (falls Cloudflare Worker weiter genutzt wird)
-- [ ] IONOS Backup-Strategie einrichten
-- [ ] Produktiv-Monitoring (Uptime, Logs)
+- [ ] IONOS Backup-Strategie einrichten (automatische Backups im Control Panel aktivieren)
+- [ ] Produktiv-Monitoring (Uptime-Check mit UptimeRobot o.ä.)
+- [ ] E-Mail-Logs prüfen (IONOS bietet Mail-Logs im Control Panel)
 
 ---
 
